@@ -272,7 +272,7 @@ To verify everything works:
 
 1. **Check imports:**
    ```bash
-   cd /Users/ychia/GroceryShopperAI/flutter_frontend
+   cd path/to/GroceryAI/flutter_frontend
    grep -n "import.*ai_event" lib/pages/chat_detail_page.dart
    # Should show: import '../models/ai_event.dart';
    ```

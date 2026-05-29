@@ -2,7 +2,8 @@ import 'package:intl/intl.dart';
 
 /// Represents an AI-generated event with structured data for custom UI rendering
 class AIEvent {
-  final String eventType; // "inventory_analysis", "menu", "restock_plan", "procurement_plan"
+  final String
+  eventType; // "inventory_analysis", "menu", "restock_plan", "procurement_plan"
   final String narrative; // Human-readable description
   final Map<String, dynamic> payload; // Structure-specific data for rendering
   final int roomId;
@@ -17,9 +18,9 @@ class AIEvent {
   });
 
   factory AIEvent.fromJson(Map<String, dynamic> json) => AIEvent(
-    eventType: json['event'] ?? 'unknown',
+    eventType: json['event'] ?? json['event_type'] ?? 'unknown',
     narrative: json['narrative'] ?? '',
-    payload: json['payload'] ?? {},
+    payload: json['payload'] ?? json['data'] ?? {},
     roomId: json['room_id'] ?? 0,
     createdAt: DateTime.now(),
   );

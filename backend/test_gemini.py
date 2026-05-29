@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 # Load env vars first
 load_dotenv()
 
-# Add backend to path
-sys.path.insert(0, '/Users/ychia/GroceryShopperAI/backend')
+# Add backend directory to path when this script is run directly
+sys.path.insert(0, os.path.dirname(__file__))
 
 async def test_gemini():
     if len(sys.argv) < 2:

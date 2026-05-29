@@ -1,415 +1,311 @@
-# Group Chat Web App + LLM Bot
+# Gro AI
 
-FastAPI + MySQL + Flutter/Vanilla HTML/JS group chat with LLM bot integration.
+Gro AI is a team-built B2B grocery procurement platform that turns group chat,
+restaurant inventory, and grocery catalog data into AI-assisted purchasing
+workflows.
 
-> 🚀 **New here?** Start with [QUICKSTART.md](QUICKSTART.md) for the fastest setup!
+The app combines a Flutter client, FastAPI backend, MySQL persistence, real-time
+WebSocket chat, and OpenAI/Gemini-powered planning modules for inventory
+analysis, menu suggestions, restock planning, and procurement list generation.
 
----
+## Project Context
 
-## Quick Start (Dev)
+Gro AI was developed as a USC Applied Data Science team project with a
+product-oriented mindset. The team conducted domain research and spoke with
+grocery managers and employees to understand procurement, inventory, and
+communication pain points in real grocery operations.
 
-### 1) MySQL Database Setup
+The project was designed as a functional prototype for a B2B grocery procurement
+workflow, with features shaped around stakeholder needs such as inventory
+tracking, group coordination, restock planning, menu ideation, and procurement
+list generation.
+
+While the system is not currently operated as a live commercial SaaS product, it
+was built to demonstrate how GenAI, backend systems, real-time communication,
+and inventory-aware workflows could be integrated into a practical procurement
+assistant.
+
+## Technical Highlights
+
+- **Project type:** Full-stack GenAI application with retrieval-augmented
+  procurement workflows
+- **Core stack:** FastAPI, SQLAlchemy, MySQL/Cloud SQL, Flutter, WebSocket,
+  OpenAI, Gemini, Docker, GCP Cloud Run, Cloud Build
+- **AI features:** LLM command router, structured JSON generation, grocery-item
+  embedding search, inventory-aware recommendations, procurement plan generation
+- **Backend features:** Authentication, room management, group chat, inventory
+  tracking, shopping lists, WebSocket messaging, and AI-command workflows
+- **Deployment:** Backend was deployed to GCP Cloud Run with Cloud SQL and
+  Cloud Build for GitHub-triggered deployment. The live cloud resources may be
+  disabled outside demos to avoid ongoing costs.
+
+## What The App Does
+
+Gro AI helps a restaurant or grocery-buying team coordinate procurement inside a
+shared chat room.
+
+Users can:
+
+- Create accounts, log in, create rooms, invite members, and chat in real time.
+- Track inventory items with stock and safety-stock thresholds.
+- Ask the AI assistant to analyze low-stock items.
+- Generate menu ideas from available inventory.
+- Generate restock recommendations from low-stock inventory.
+- Generate a consolidated procurement plan from group chat context.
+- Save generated procurement items into shopping lists.
+
+## My Contributions
+
+This was a group project. My primary contributions focused on backend
+development and AI engineering:
+
+- Built most FastAPI backend routes for auth, rooms, chat, inventory, shopping
+  lists, WebSocket messaging, and AI-command flows.
+- Integrated OpenAI and Gemini APIs through a shared LLM wrapper.
+- Built the LLM command routing for `@gro`, `@gro analyze`, `@gro menu`,
+  `@gro restock`, `@gro plan`, and `@inventory`.
+- Implemented grocery embeddings and vector-based catalog matching for
+  retrieval-augmented recommendations.
+- Built the AI modules for inventory analysis, menu generation, restock
+  planning, and procurement planning.
+- Dockerized and deployed the backend to GCP Cloud Run connected to Cloud SQL.
+- Configured Cloud Build for GitHub-triggered deployment.
+
+## Current Model Support
+
+The current maintained path supports:
+
+- OpenAI chat completions, default model configured by `OPENAI_MODEL`
+- Google Gemini, model configured by `GEMINI_MODEL`
+
+TinyLlama/Ollama was prototyped earlier in the project, but it was disabled in
+the final maintained path because OpenAI and Gemini gave better response quality
+and practical latency for this application. Some legacy docs or scripts may
+still reference that experiment, but TinyLlama is not part of the current
+supported setup.
+
+## Architecture
+
+```text
+Flutter app
+  |
+  | HTTP + WebSocket
+  v
+FastAPI backend
+  |
+  | SQLAlchemy async ORM
+  v
+MySQL / Cloud SQL
+
+FastAPI backend
+  |
+  | LLM calls
+  v
+OpenAI / Gemini
+
+FastAPI backend
+  |
+  | embedding lookup
+  v
+SQLite embedding cache + grocery_items table
+```
+
+The retrieval layer uses a lightweight embedding cache for grocery catalog items.
+Because the catalog is relatively stable and only updated occasionally, item
+embeddings can be precomputed and refreshed when new products are added. This
+keeps retrieval simple, fast, and cost-efficient while still supporting
+inventory-aware recommendations.
+
+## AI Workflow
+
+1. A user sends a chat message such as `@gro analyze` or `@gro plan`.
+2. The backend stores and broadcasts the original chat message.
+3. The command router in `backend/app.py` detects the AI command.
+4. Inventory, chat history, and relevant grocery catalog matches are loaded.
+5. The selected LLM provider generates structured JSON output.
+6. The backend persists the AI event and broadcasts it over WebSocket.
+7. Flutter renders the AI result as a structured card in the chat UI.
+
+## Repository Structure
+
+```text
+.
+├── backend/
+│   ├── app.py                    # FastAPI routes, WebSocket, AI command router
+│   ├── auth.py                   # JWT auth and password hashing
+│   ├── db.py                     # SQLAlchemy models and async DB session
+│   ├── llm.py                    # OpenAI/Gemini LLM wrapper and embeddings
+│   ├── llm_modules/              # Inventory/menu/restock/procurement modules
+│   ├── vector/                   # Embedding cache and vector search helpers
+│   ├── load_groceries.py         # Grocery CSV loader
+│   ├── GroceryDataset.csv        # Small grocery catalog sample
+│   └── .env.example              # Local backend environment template
+├── flutter_frontend/
+│   ├── lib/                      # Flutter app source
+│   ├── web/                      # Flutter web entrypoint
+│   ├── ios/                      # iOS project files
+│   └── pubspec.yaml              # Flutter dependencies
+├── sql/
+│   ├── schema.sql                # Local MySQL schema setup
+│   └── migration_add_deleted_at.sql
+├── Dockerfile                    # Backend container for Cloud Run
+├── cloudbuild.yaml               # Cloud Build deployment config
+├── requirements.txt              # Backend Python dependencies
+└── QUICKSTART.md                 # Local setup notes
+```
+
+## Local Setup
+
+### Prerequisites
+
+- Python 3.11+
+- MySQL 8+
+- Flutter SDK 3.x
+- Optional: OpenAI API key and/or Gemini API key
+
+### 1. Create The Local Database
 
 ```bash
-# Run the schema file to create database, user, and tables
 mysql -u root -p < sql/schema.sql
+```
 
-# Or manually:
-mysql -u root -p
-# Then paste contents of sql/schema.sql
+The schema creates a local development database named `groceryshopperai` and a
+development user named `chatuser`. The password in `sql/schema.sql` is a
+local-only placeholder for reproducible setup. Do not use it for production.
 
-# Load GroceryDataset.csv (optional)
+### 2. Configure Backend Environment
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Then edit `backend/.env` and add at least one LLM API key.
+
+```bash
+DATABASE_URL=mysql+asyncmy://chatuser:chatpass@127.0.0.1:3306/groceryshopperai
+JWT_SECRET=replace-with-a-long-random-dev-secret
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+```
+
+### 3. Install Backend Dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 4. Load Grocery Catalog Data
+
+```bash
 cd backend
 python load_groceries.py
+cd ..
+```
 
-# 2) Backend
+### 5. Start The Backend
+
+```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Copy env and edit values
-cp .env.example .env
-
-# 3) Run app
 python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-Open http://localhost:8000
+The backend API will be available at:
 
-## LLM Model Configuration
+```text
+http://localhost:8000
+```
 
-The application now supports multiple LLM models:
+### 6. Run The Flutter App
 
-- **OpenAI** (gpt-4o-mini) - Cloud API
-- **Google Gemini** (2.5-flash) - Cloud API
-- **TinyLlama** - Local model via Ollama
-
-### Environment Configuration
-
-Edit `backend/.env` with your API credentials:
+In a second terminal:
 
 ```bash
-# Database
-DATABASE_URL=mysql+asyncmy://chatuser:chatpass@localhost:3306/groceryshopperai
-JWT_SECRET=your-long-secret-key-here-minimum-32-characters
-JWT_EXPIRE_MINUTES=43200
-APP_HOST=0.0.0.0
-APP_PORT=8000
-
-# OpenAI (optional)
-OPENAI_API_KEY=sk-your-openai-key-here
-
-# Google Gemini (optional)
-GEMINI_API_KEY=AIza_your-gemini-key-here
-GEMINI_MODEL=models/gemini-2.5-flash
-
-# Ollama (optional, for local TinyLlama)
-# OLLAMA_API_BASE=http://localhost:11434
+cd flutter_frontend
+flutter pub get
+flutter run -d chrome \
+  --dart-define=API_BASE_URL=http://localhost:8000/api \
+  --dart-define=WS_URL=ws://localhost:8000/ws
 ```
 
----
+Without `--dart-define`, the frontend falls back to the deployed backend URL
+configured in `flutter_frontend/lib/services/api_client.dart`. That hosted
+backend may be disabled outside demo windows to avoid cloud charges, so local
+review should use the localhost values above.
 
-## 📁 Project Structure
+## Example AI Commands
 
-```
-GroceryShopperAI/
-│
-├── 📂 backend/                          # FastAPI Backend (Python)
-│   ├── app.py                          # Main FastAPI application with all API routes
-│   ├── db.py                           # SQLAlchemy ORM models (User, Room, Message, RoomMember)
-│   ├── auth.py                         # JWT authentication, password hashing
-│   ├── llm.py                          # LLM integration (OpenAI, Gemini, TinyLlama)
-│   ├── websocket_manager.py            # WebSocket connection manager for real-time chat
-│   ├── load_groceries.py               # Script to load GroceryDataset.csv into database
-│   ├── requirements.txt                # Python dependencies (FastAPI, SQLAlchemy, Google Generative AI, etc.)
-│   ├── .env.example                    # Environment variables template
-│   ├── GroceryDataset.csv              # Grocery items dataset
-│   └── __pycache__/                    # Python cache
-│
-├── 📂 flutter_frontend/                 # Flutter Cross-Platform App (Dart)
-│   ├── lib/
-│   │   ├── main.dart                   # App entry point, theme setup
-│   │   ├── 📂 pages/                   # Screen pages
-│   │   │   ├── login_page.dart         # Login & Signup screen
-│   │   │   ├── home_page.dart          # Room list screen
-│   │   │   ├── chat_detail_page.dart   # Chat screen
-│   │   │   └── profile_page.dart       # User profile & model selection
-│   │   ├── 📂 services/                # Business logic services
-│   │   │   ├── api_client.dart         # HTTP client for backend API
-│   │   │   ├── auth_service.dart       # Authentication logic
-│   │   │   ├── storage_service.dart    # Secure local token storage
-│   │   │   └── image_service.dart      # Image handling
-│   │   ├── 📂 models/                  # Data models
-│   │   │   └── message.dart            # Message model
-│   │   ├── 📂 widgets/                 # Reusable UI components
-│   │   │   ├── frosted_glass_button.dart
-│   │   │   └── ... other widgets
-│   │   └── 📂 themes/                  # Theme configuration
-│   │       ├── colors.dart             # Color palette
-│   │       ├── light_mode.dart         # Light theme
-│   │       └── dark_mode.dart          # Dark theme
-│   ├── ios/                            # iOS specific configuration
-│   │   ├── Runner/                     # Xcode project
-│   │   ├── Pods/                       # CocoaPods dependencies
-│   │   └── Podfile                     # iOS dependency management
-│   ├── android/                        # Android specific configuration
-│   │   ├── app/                        # Android app module
-│   │   ├── gradle/                     # Gradle build system
-│   │   └── build.gradle                # Project-level build config
-│   ├── web/                            # Web specific configuration
-│   │   ├── index.html                  # Web entry point
-│   │   └── manifest.json               # Web app manifest
-│   ├── assets/                         # App resources
-│   │   ├── fonts/                      # Custom fonts
-│   │   └── ... images, etc
-│   ├── pubspec.yaml                    # Flutter project config & dependencies
-│   ├── pubspec.lock                    # Locked dependency versions
-│   ├── analysis_options.yaml           # Dart analyzer rules
-│   └── README.md                       # Flutter app documentation
-│
-├── 📂 frontend/                         # Optional: Vanilla HTML/JS Web Frontend
-│   ├── index.html                      # Main HTML page
-│   ├── app.js                          # JavaScript logic
-│   └── styles.css                      # Styling
-│
-├── 📂 sql/                              # Database Schema
-│   └── schema.sql                      # MySQL database setup script
-│       ├── CREATE DATABASE groceryshopperai
-│       ├── CREATE USER chatuser
-│       ├── CREATE TABLE users
-│       ├── CREATE TABLE rooms
-│       ├── CREATE TABLE room_members
-│       ├── CREATE TABLE messages
-│       └── CREATE INDEXES
-│
-├── 📂 twa_android_src/                  # Trusted Web Activity (Android)
-│   ├── app/
-│   ├── build.gradle
-│   └── settings.gradle
-│
-├── 📄 README.md                         # Main project documentation
-├── 📄 QUICKSTART.md                     # Quick setup guide (5 min)
-├── 📄 CHECKLIST.md                      # Setup verification checklist
-├── 📄 requirements.txt                  # Reference copy of backend dependencies
-└── 📄 .gitignore                        # Git ignore rules
+Inside a chat room:
 
+```text
+@inventory
+Tomatoes, 10, 20
+Olive oil, 3, 5
+Cheese, 12, 4
 ```
 
----
-
-## 🔧 Backend Architecture
-
-### API Endpoints
-
-#### Authentication
-
-- `POST /api/signup` - Create new user account
-- `POST /api/login` - User login, returns JWT token
-
-#### Chat Rooms
-
-- `GET /api/rooms` - List all rooms user is member of
-- `POST /api/rooms` - Create new room
-- `GET /api/rooms/{room_id}/members` - Get room members
-- `POST /api/rooms/{room_id}/invite` - Invite user to room
-
-#### Messages
-
-- `GET /api/rooms/{room_id}/messages` - Get chat history (limit: 50)
-- `POST /api/rooms/{room_id}/messages` - Send message (triggers LLM if @gro mentioned)
-
-#### LLM Model Management
-
-- `GET /api/users/llm-model?platform=ios|android|web|desktop` - Get available models
-- `PUT /api/users/llm-model` - Change user's preferred model
-- `POST /api/models/download-tinyllama` - Download TinyLlama locally
-- `GET /api/models/download-progress` - Check download progress
-
-#### WebSocket
-
-- `WS /ws?room_id={room_id}` - Real-time chat connection
-
-### Database Schema
-
-#### Users Table
-
-- id (PK)
-- username (UNIQUE)
-- password_hash
-- preferred_llm_model (openai | gemini | tinyllama)
-- created_at, updated_at
-
-#### Rooms Table
-
-- id (PK)
-- name (UNIQUE)
-- owner_id (FK → users.id)
-- created_at
-
-#### Room Members Table
-
-- id (PK)
-- room_id (FK → rooms.id)
-- user_id (FK → users.id)
-- joined_at
-
-#### Messages Table
-
-- id (PK)
-- room_id (FK → rooms.id)
-- user_id (FK → users.id, nullable)
-- content (TEXT)
-- is_bot (BOOLEAN)
-- created_at
-
----
-
-## 📱 Flutter Frontend Architecture
-
-### Authentication Flow
-
-1. User enters credentials on LoginPage
-2. ApiClient sends POST request to `/api/login`
-3. Backend returns JWT token
-4. StorageService stores token securely
-5. App navigates to HomePage
-
-### Chat Flow
-
-1. HomePage displays list of rooms
-2. User selects room → ChatDetailPage
-3. WebSocket connects to `/ws?room_id={id}`
-4. Messages stream in real-time
-5. User types message → POST to `/api/rooms/{id}/messages`
-6. Message broadcast to all connected clients
-
-### LLM Bot Trigger
-
-1. User types message with `@gro` mention
-2. Message sent to backend
-3. Backend detects `@gro` mention
-4. LLM called (based on user's preferred model)
-5. Bot response created as message with `is_bot=true`
-6. WebSocket broadcasts bot message to room
-
-### Model Selection
-
-1. User navigates to ProfilePage
-2. Clicks "AI Model" setting
-3. Dialog shows available models based on platform:
-   - iOS/Android: OpenAI, Gemini
-   - Web/Desktop: TinyLlama, OpenAI, Gemini
-4. Selection saved via PUT `/api/users/llm-model`
-
----
-
-## 🤖 LLM Integration
-
-### Supported Models
-
-| Model                | Type      | Provider | Setup          | Platform Support |
-| -------------------- | --------- | -------- | -------------- | ---------------- |
-| **gpt-4o-mini**      | Cloud API | OpenAI   | API Key        | All              |
-| **gemini-2.5-flash** | Cloud API | Google   | API Key        | All              |
-| **tinyllama**        | Local     | Ollama   | Local download | Desktop/Web only |
-
-### LLM Processing
-
-1. User sends message with `@gro`
-2. Backend extracts user's preferred model
-3. Calls appropriate LLM provider:
-   - **OpenAI**: Uses `openai` library, sends to `api.openai.com`
-   - **Gemini**: Uses `google-generativeai` SDK, sends to Google API
-   - **TinyLlama**: Calls local `ollama` server
-4. Response streamed back
-5. Bot message inserted to database
-6. WebSocket broadcasts to room
-
----
-
-## 🔐 Technology Stack
-
-### Backend
-
-- **Framework**: FastAPI (async Python web framework)
-- **Server**: Uvicorn (ASGI server)
-- **Database ORM**: SQLAlchemy 2.0 (async)
-- **Database Driver**: asyncmy (async MySQL)
-- **Authentication**: PyJWT + passlib (bcrypt)
-- **Real-time**: WebSocket via Starlette
-- **LLM**: google-generativeai, openai (via requests), ollama (HTTP)
-
-### Frontend
-
-- **Framework**: Flutter 3.x (Dart)
-- **HTTP**: http package
-- **WebSocket**: web_socket_channel
-- **Storage**: flutter_secure_storage (encrypted)
-- **UI**: Material Design
-- **Fonts**: google_fonts
-- **Image Handling**: image_picker
-
-### Database
-
-- **MySQL 8.0+**
-- **Character Set**: utf8mb4 (supports emoji, multiple languages)
-- **Engine**: InnoDB (transactions, foreign keys)
-
-### Infrastructure
-
-- **Local Development**: Uvicorn + MySQL + Ollama (optional)
-- **Deployment Ready**: Docker compatible, scalable
-
----
-
-## 🚀 Key Features
-
-✅ **Real-time Chat** - WebSocket for instant messaging  
-✅ **LLM Integration** - Multiple AI models support  
-✅ **Cross-platform** - iOS, Android, Web from single codebase  
-✅ **Secure Auth** - JWT + bcrypt password hashing  
-✅ **User Management** - Signup, login, profiles  
-✅ **Room Management** - Create rooms, invite members  
-✅ **Message History** - Persistent chat storage  
-✅ **Model Selection** - Per-user LLM preference  
-✅ **Responsive UI** - Works on all screen sizes
-
----
-
-## 📊 Data Flow Diagram
-
-```
-User (App)
-    ↓
-Flutter Frontend (api_client.dart)
-    ↓
-HTTP/WebSocket
-    ↓
-FastAPI Backend (app.py)
-    ↓
-SQLAlchemy ORM (db.py)
-    ↓
-MySQL Database (sql/schema.sql)
-    ↓
-LLM Services (llm.py)
-    ├→ OpenAI API
-    ├→ Google Generative AI
-    └→ Local Ollama Server
+```text
+@gro analyze
+@gro menu
+@gro restock
+@gro plan
+@gro What should we buy for a small dinner service?
 ```
 
----
+## API Surface
 
-## 📦 Dependencies at a Glance
+Main backend routes include:
 
-### Backend (requirements.txt)
+- `POST /api/signup`
+- `POST /api/login`
+- `GET /api/rooms`
+- `POST /api/rooms`
+- `DELETE /api/rooms/{room_id}`
+- `GET /api/rooms/{room_id}/members`
+- `POST /api/rooms/{room_id}/invite`
+- `GET /api/rooms/{room_id}/messages`
+- `POST /api/rooms/{room_id}/messages`
+- `GET /api/users/llm-model`
+- `PUT /api/users/llm-model`
+- `GET /api/inventory`
+- `POST /api/inventory`
+- `DELETE /api/inventory/{product_id}`
+- `GET /api/shopping-lists`
+- `POST /api/shopping-lists`
+- `DELETE /api/shopping-lists/{list_id}`
+- `POST /api/shopping-lists/{list_id}/check-item`
+- `WS /ws?room_id={room_id}`
 
-- fastapi, uvicorn, starlette
-- sqlalchemy, asyncmy
-- passlib, pyjwt, python-jose
-- google-generativeai, google-api-core, google-auth
-- python-dotenv, httpx, requests
-- pydantic, jinja2
+## Reproducibility Notes
 
-### Frontend (pubspec.yaml)
+- Local setup requires MySQL and a valid `DATABASE_URL`.
+- LLM features require an OpenAI or Gemini API key.
+- Vector search uses an embedding SQLite cache. In Cloud Run, the app attempts
+  to download this cache from GCS. In local development, vector matching will
+  fall back to an empty result set if no local `embeddings.sqlite` file exists.
+- The backend can still run basic auth, rooms, chat, inventory, and shopping
+  list flows without the embedding cache.
 
-- http, web_socket_channel
-- flutter_secure_storage
-- google_fonts, intl
-- image_picker
+## Known Limitations
 
----
+- This is a functional product prototype developed in an academic team setting, not a currently operated commercial SaaS product.
+- The original Cloud Run / Cloud SQL deployment may be disabled outside demo windows to avoid ongoing cloud costs.
+- WebSocket connections are room-scoped but not independently authenticated at connection time.
+- CORS is permissive for local development and demo purposes.
+- Automated test coverage is limited and should be expanded before production use.
+- Some legacy documentation files may still reference earlier prototypes or experiments.
 
-## 📝 File Organization Tips
+## Future Improvements
 
-- **Backend changes**: Edit files in `backend/`, restart Uvicorn
-- **Frontend changes**: Edit files in `flutter_frontend/lib/`, hot reload in Flutter
-- **Database changes**: Modify `sql/schema.sql`, run migration script
-- **Configuration**: Update `backend/.env` for API keys
-- **Dependencies**: Update `backend/requirements.txt` or `flutter_frontend/pubspec.yaml`
-
----
-
-## 🔄 Development Workflow
-
-1. **Backend Development**
-
-   - Edit `backend/app.py`, `db.py`, `llm.py`
-   - Restart Uvicorn to see changes
-   - Check logs in Terminal 1
-
-2. **Frontend Development**
-
-   - Edit files in `flutter_frontend/lib/`
-   - Hot reload: Press `r` in Flutter console
-   - Check logs in Terminal 2
-
-3. **Database Changes**
-
-   - Edit `sql/schema.sql`
-   - Run: `mysql -u root -p < sql/schema.sql`
-   - Restart backend to reconnect
-
-4. **Testing**
-   - Use app UI to test features
-   - Check backend logs for API calls
-   - Use database client to verify data
+- Migrate the embedding retrieval layer to a managed vector database if the
+  product catalog grows significantly or requires frequent real-time updates.
+- Add Alembic migrations instead of schema-only SQL setup.
+- Add CI checks for backend tests and Flutter analysis.
+- Add structured Pydantic validation for LLM JSON outputs.
+- Add a small seed/demo script for recruiter-friendly local demos.
+- Add screenshots or a short demo GIF to the README.
+- Move production secrets to Secret Manager and document the Cloud Run/Cloud SQL
+  deployment setup without exposing environment-specific values.
+- Revisit local model support only if latency and output quality become
+  competitive with API-backed models.
