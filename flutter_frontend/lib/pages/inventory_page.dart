@@ -485,7 +485,6 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Widget _buildBadge(BuildContext context, String text, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

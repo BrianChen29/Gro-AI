@@ -27,7 +27,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    preferred_llm_model: Mapped[str] = mapped_column(String(50), default="tinyllama")
+    preferred_llm_model: Mapped[str] = mapped_column(String(50), default="openai")
     created_at: Mapped["DateTime"] = mapped_column(DateTime(timezone=True), server_default=func.now())
     messages = relationship("Message", back_populates="user")
     room_members = relationship("RoomMember", back_populates="user")

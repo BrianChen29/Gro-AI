@@ -1,286 +1,105 @@
-# GroceryShopperAI - Quick Start Guide
+# Gro AI Quickstart
 
-Get the entire application running in 5 simple steps.
-
----
+This guide runs the project locally. The previous GCP Cloud Run / Cloud SQL
+deployment may be disabled to avoid cloud charges, so use localhost for review.
 
 ## Prerequisites
 
-- macOS with Homebrew (or equivalent on your OS)
 - Python 3.11+
-- MySQL 8.0+
-- Flutter SDK 3.x (for mobile/web frontend)
-- Git
+- MySQL 8+
+- Flutter SDK 3.x
+- OpenAI API key or Gemini API key for AI features
 
----
-
-## Step 1: Clone & Navigate
+## 1. Database
 
 ```bash
-cd /Users/ychia/GroceryShopperAI
-# or your project directory
-```
-
----
-
-## Step 2: Setup Database (2 minutes)
-
-```bash
-# Create database and user
 mysql -u root -p < sql/schema.sql
-
-# When prompted, enter your MySQL root password
 ```
 
-**That's it!** Database, tables, and user are now created.
+This creates a local development database named `groceryshopperai` and a
+development user named `chatuser` with password `chatpass`.
 
----
-
-## Step 3: Setup Backend (3 minutes)
+## 2. Backend Environment
 
 ```bash
-# Create Python environment
-conda create -n groceryai python=3.11 -y
-conda activate groceryai
+cp backend/.env.example backend/.env
+```
 
-# Install dependencies
+Edit `backend/.env` and fill in a long local `JWT_SECRET` plus at least one LLM
+API key:
+
+```bash
+OPENAI_API_KEY=...
+GEMINI_API_KEY=...
+```
+
+## 3. Backend Dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Create .env file
-nano .env
 ```
 
-### Edit .env and add your API keys (optional):
-
-```.env``` template:
-
-```bash
-# Database Configuration
-DATABASE_URL=mysql+asyncmy://chatuser:password@localhost/groceryshopperai
-
-# OpenAI Configuration (for gpt-4o-mini)
-LLM_API_BASE=https://api.openai.com/v1 
-LLM_MODEL=gpt-4o-mini
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Google Gemini Configuration (Optional - for free Gemini model)
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=models/gemini-2.5-flash
-
-# LLM Model Configuration
-LLM_MODEL=tinyllama
-# Options: tinyllama (local), openai (requires OPENAI_API_KEY), gemini (requires GEMINI_API_KEY)
-```
-
----
-
-## Step 4: Start Backend
-
-**Terminal 1: Backend Server**
+## 4. Load Grocery Catalog
 
 ```bash
 cd backend
-conda activate groceryai
+python load_groceries.py
+cd ..
+```
+
+## 5. Run Backend
+
+```bash
+cd backend
 python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-Expected output:
+Backend URL:
 
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-INFO:     Application startup complete
-```
-
-✅ Backend is ready at `http://localhost:8000`
-
----
-
-## Step 5: Run Frontend
-
-### Flutter Installation
-Set up Flutter quickly on macOS, Windows, or Linux (Ubuntu) with the easiest available methods.
-
-#### Mac OS
-```bash
-brew install flutter
+```text
+http://localhost:8000
 ```
 
-Verify Setup
-```bash
-flutter doctor
-```
+## 6. Run Flutter
 
-#### Linux / Ubuntu
-```bash
-sudo snap install flutter --classic
-```
-
-Verify Setup
-```bash
-flutter doctor
-```
-
-#### Windows
-**1. Download Flutter SDK**
-
-- Go to Flutter for Windows https://docs.flutter.dev/get-started
-- Download the latest Stable Channel ZIP
-- Extract it to:
-```makefile
-C:\src\flutter
-```
-
-**2. Add Flutter to PATH**
-
-- Search “Edit the system environment variables” → Environment Variables...
-- Add:
-```makefile
-C:\src\flutter\bin
-```
-
-Verify Setup
-```bash
-flutter doctor
-```
-
----
-Choose ONE of the following:
-
-### Option A: iOS (macOS only)
-
-**Terminal 2: Flutter iOS**
+Open a second terminal:
 
 ```bash
 cd flutter_frontend
 flutter pub get
-flutter run -d "iPhone 14"
+flutter run -d chrome \
+  --dart-define=API_BASE_URL=http://localhost:8000/api \
+  --dart-define=WS_URL=ws://localhost:8000/ws
 ```
 
-### Option B: Android
+## Demo Flow
 
-**Terminal 2: Flutter Android**
+1. Create an account.
+2. Create a room.
+3. Add inventory:
 
-```bash
-cd flutter_frontend
-flutter pub get
-flutter run
+```text
+@inventory
+Tomatoes, 10, 20
+Olive oil, 3, 5
+Cheese, 12, 4
 ```
 
-### Option C: Web
+4. Try AI commands:
 
-**Terminal 2: Flutter Web**
-
-```bash
-cd flutter_frontend
-flutter pub get
-flutter run -d chrome
+```text
+@gro analyze
+@gro menu
+@gro restock
+@gro plan
 ```
 
----
+## Notes
 
-## 🎉 Done!
-
-You now have:
-
-- ✅ MySQL database running
-- ✅ FastAPI backend at http://localhost:8000
-- ✅ Flutter app running on your device/emulator
-
-### Test the app:
-
-1. Open the app
-2. **Sign up** with username & password
-3. **Create a room** or join existing one
-4. **Send a message** - type anything
-5. **@gro** - mention the bot to get AI response
-
----
-
-## Common Commands
-
-```bash
-# Stop backend (Ctrl+C)
-# Stop Flutter app (q in terminal)
-
-# Restart everything:
-# Terminal 1: python -m uvicorn app:app --host 0.0.0.0 --port 8000
-# Terminal 2: flutter run -d <device-id>
-
-# List available devices
-flutter devices
-
-# Clean build (if issues)
-flutter clean
-flutter pub get
-flutter run -d <device-id>
-```
-
----
-
-## API Endpoints (for reference)
-
-- `POST /api/signup` - Create account
-- `POST /api/login` - Login
-- `GET /api/rooms` - List rooms
-- `POST /api/rooms` - Create room
-- `POST /api/rooms/{room_id}/messages` - Send message
-- `WS /ws?room_id={room_id}` - WebSocket chat
-
----
-
-## Troubleshooting
-
-### Backend won't start on port 8000
-
-```bash
-# Check if port is in use
-lsof -i :8000
-
-# Kill the process
-lsof -ti:8000 | xargs kill -9
-
-# Restart
-python -m uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-### MySQL connection error
-
-```bash
-# Check MySQL is running
-mysql -u root -p -e "SELECT 1"
-
-# Verify credentials in backend/.env match database setup
-```
-
-### Flutter build fails
-
-```bash
-cd flutter_frontend
-flutter clean
-flutter pub get
-flutter run -d <device-id>
-```
-
----
-
-## Next Steps
-
-- Read `README.md` for detailed documentation
-- Check `sql/schema.sql` for database structure
-- Explore `backend/app.py` for API implementation
-- Review `flutter_frontend/lib/main.dart` for UI code
-
----
-
-## Need Help?
-
-Check these files:
-
-- Backend logs: Terminal 1 output
-- Flutter logs: Terminal 2 output
-- Database: `mysql -u chatuser -p -e "SELECT * FROM users;"`
-- Environment: `backend/.env` (make sure keys are set)
-
----
-
-**Happy coding!** 🚀
+- LLM features require valid OpenAI or Gemini credentials.
+- Vector search uses an embedding SQLite cache. If the cache is unavailable,
+  the app still supports auth, rooms, chat, inventory, and shopping lists.
+- TinyLlama/Ollama was an earlier prototype path and is not part of the current
+  supported local setup.

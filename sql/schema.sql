@@ -1,8 +1,7 @@
 -- Create database and user
 CREATE DATABASE IF NOT EXISTS groceryshopperai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
--- CREATE USER IF NOT EXISTS 'chatuser'@'localhost' IDENTIFIED BY 'chatpass';
--- GRANT ALL PRIVILEGES ON groceryshopperai.* TO 'chatuser'@'localhost';
-CREATE USER IF NOT EXISTS 'chatuser'@'%' IDENTIFIED BY 'Chatpass123!';
+-- Local development user. Do not reuse this password in production.
+CREATE USER IF NOT EXISTS 'chatuser'@'%' IDENTIFIED BY 'chatpass';
 GRANT ALL PRIVILEGES ON groceryshopperai.* TO 'chatuser'@'%';
 FLUSH PRIVILEGES;
 
@@ -13,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  preferred_llm_model VARCHAR(50) DEFAULT 'openai' COMMENT 'User preferred LLM model: tinyllama, openai, or gemini',
+  preferred_llm_model VARCHAR(50) DEFAULT 'openai' COMMENT 'User preferred LLM model: openai or gemini',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User accounts table';

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -8,43 +7,60 @@ import '../models/ai_event.dart';
 import 'storage_service.dart';
 
 const bool useAndroidEmulator = false;
+const String configuredApiBase = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: '',
+);
+const String configuredWsUrl = String.fromEnvironment(
+  'WS_URL',
+  defaultValue: '',
+);
+const String deployedApiBase =
+    'https://groceryshopperai-52101160479.us-west1.run.app/api';
+const String deployedWsUrl =
+    'wss://groceryshopperai-52101160479.us-west1.run.app/ws';
 
 final String apiBase = _getApiBase();
 final String wsUrl = _getWsUrl();
 
 String _getApiBase() {
+  if (configuredApiBase.isNotEmpty) {
+    return configuredApiBase;
+  }
+
   if (kIsWeb) {
     // Web: 使用 localhost:8000 for development
     // In production, change to your backend URL
-    final backendHost = 'localhost';
-    final backendPort = 8000;
-    //return 'http://$backendHost:$backendPort/api';
-    return 'https://groceryshopperai-52101160479.us-west1.run.app/api';
+    return deployedApiBase;
   } else if (useAndroidEmulator) {
     // Android Emulator
     //return 'http://10.0.2.2:8000/api';
-    return 'https://groceryshopperai-52101160479.us-west1.run.app/api';
+    return deployedApiBase;
   } else {
     // iOS 或 macOS
     //return 'http://localhost:8000/api';
-    return 'https://groceryshopperai-52101160479.us-west1.run.app/api';
+    return deployedApiBase;
   }
 }
 
 String _getWsUrl() {
+  if (configuredWsUrl.isNotEmpty) {
+    return configuredWsUrl;
+  }
+
   if (kIsWeb) {
     // Web: 使用 localhost:8000 for development
     // In production, change to your backend URL
     //return 'ws://localhost:8000/ws';
-    return 'wss://groceryshopperai-52101160479.us-west1.run.app/ws';
+    return deployedWsUrl;
   } else if (useAndroidEmulator) {
     // Android Emulator
     //return 'ws://10.0.2.2:8000/ws';
-    return 'wss://groceryshopperai-52101160479.us-west1.run.app/ws';
+    return deployedWsUrl;
   } else {
     // iOS 或 macOS
     //return 'ws://localhost:8000/ws';
-    return 'wss://groceryshopperai-52101160479.us-west1.run.app/ws';
+    return deployedWsUrl;
   }
 }
 
@@ -53,21 +69,26 @@ class ApiClient {
 
   Future<Map<String, String>> _headers() async {
     final h = {'Content-Type': 'application/json'};
-    final t = token ?? await storage.read(key: 'token');
+    String? t = token;
+    t ??= await storage.read(key: 'auth_token');
+    t ??= await storage.read(key: 'token');
     print(
-        '[ApiClient] Token: ${t != null ? "found (${t.substring(0, 20)}...)" : "null"}');
+      '[ApiClient] Token: ${t != null ? "found (${t.length > 20 ? t.substring(0, 20) : t}...)" : "null"}',
+    );
     if (t != null) h['Authorization'] = 'Bearer $t';
     return h;
   }
 
   Future<Map<String, dynamic>> post(String path, Map body) async {
     final url = Uri.parse(apiBase + path);
-    print('[ApiClient] POST ' +
-        url.toString() +
-        ' with body: ' +
-        body.toString());
-    final res =
-        await http.post(url, headers: await _headers(), body: jsonEncode(body));
+    print(
+      '[ApiClient] POST ' + url.toString() + ' with body: ' + body.toString(),
+    );
+    final res = await http.post(
+      url,
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
     print('[ApiClient] POST response: ${res.statusCode}');
     if (res.statusCode < 200 || res.statusCode >= 300) {
       String msg = res.body;
@@ -97,9 +118,13 @@ class ApiClient {
   Future<Map<String, dynamic>> put(String path, Map body) async {
     final url = Uri.parse(apiBase + path);
     print(
-        '[ApiClient] PUT ' + url.toString() + ' with body: ' + body.toString());
-    final res =
-        await http.put(url, headers: await _headers(), body: jsonEncode(body));
+      '[ApiClient] PUT ' + url.toString() + ' with body: ' + body.toString(),
+    );
+    final res = await http.put(
+      url,
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
     print('[ApiClient] PUT response: ${res.statusCode}');
     if (res.statusCode < 200 || res.statusCode >= 300) {
       String msg = res.body;
@@ -151,7 +176,9 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> postRoomMessage(
-      int roomId, String content) async {
+    int roomId,
+    String content,
+  ) async {
     return await post('/rooms/$roomId/messages', {'content': content});
   }
 
@@ -172,9 +199,9 @@ class ApiClient {
     String platform = 'desktop';
     if (kIsWeb) {
       platform = 'web';
-    } else if (Platform.isIOS) {
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       platform = 'ios';
-    } else if (Platform.isAndroid) {
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
       platform = 'android';
     }
 
@@ -185,32 +212,6 @@ class ApiClient {
     return await put('/users/llm-model', {'model': model});
   }
 
-  Future<Map<String, dynamic>> downloadTinyLlama() async {
-    return await post('/models/download-tinyllama', {});
-  }
-
-  Future<Map<String, dynamic>> getDownloadProgress() async {
-    return await get('/models/download-progress');
-  }
-
-  // AI Planner - Generate group plan
-  Future<Map<String, dynamic>> generateAIPlan(int roomId,
-      {String? goal}) async {
-    final body = <String, dynamic>{'goal': goal ?? ''};
-    print(
-        '[ApiClient] Calling generateAIPlan for room $roomId with goal: $goal');
-    return await post('/rooms/$roomId/ai-plan', body);
-  }
-
-  // AI Matcher - Suggest invites and roles
-  Future<Map<String, dynamic>> generateAISuggestion(int roomId,
-      {String? goal}) async {
-    final body = <String, dynamic>{'goal': goal ?? ''};
-    print(
-        '[ApiClient] Calling generateAISuggestion for room $roomId with goal: $goal');
-    return await post('/rooms/$roomId/ai-matching', body);
-  }
-
   // Inventory Management
   Future<List<dynamic>> getInventory() async {
     final res = await get('/inventory');
@@ -218,7 +219,10 @@ class ApiClient {
   }
 
   Future<void> upsertInventoryItem(
-      String name, int stock, int safetyStock) async {
+    String name,
+    int stock,
+    int safetyStock,
+  ) async {
     await post('/inventory', {
       'product_name': name,
       'stock': stock,
@@ -237,10 +241,7 @@ class ApiClient {
   }
 
   Future<void> createShoppingList(String title, String itemsJson) async {
-    await post('/shopping-lists', {
-      'title': title,
-      'items_json': itemsJson,
-    });
+    await post('/shopping-lists', {'title': title, 'items_json': itemsJson});
   }
 
   Future<void> archiveShoppingList(int listId) async {
@@ -248,7 +249,10 @@ class ApiClient {
   }
 
   Future<void> checkShoppingListItem(
-      int listId, int index, Map<String, dynamic> item) async {
+    int listId,
+    int index,
+    Map<String, dynamic> item,
+  ) async {
     await post('/shopping-lists/$listId/check-item', {
       'index': index,
       'item': item,

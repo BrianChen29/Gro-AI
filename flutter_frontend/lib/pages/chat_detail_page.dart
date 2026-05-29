@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import '../models/message.dart';
 import '../models/ai_event.dart';
@@ -72,9 +71,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             _errorMessage = 'Token not found, please login again';
             _isConnecting = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_errorMessage)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(_errorMessage)));
         }
         return;
       }
@@ -190,221 +189,45 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
+    var text = _messageController.text.trim();
     if (text.isEmpty) return;
 
     print('[Chat] Sending message: $text');
     _messageController.clear();
 
-    // Check if message starts with @plan or @match command
-    if (text.startsWith('@plan')) {
-      await _handlePlanCommand(text);
-      return;
+    if (text.toLowerCase().startsWith('@plan')) {
+      final goal = text
+          .replaceFirst(RegExp(r'@plan', caseSensitive: false), '')
+          .trim();
+      text = goal.isEmpty ? '@gro plan' : '@gro plan $goal';
     }
 
-    if (text.startsWith('@match')) {
-      await _handleMatchCommand(text);
+    if (text.toLowerCase().startsWith('@match')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Use @gro plan for the supported AI planning flow.'),
+          ),
+        );
+      }
       return;
     }
 
     // Regular message
     try {
       print('[Chat] Room ID: ${widget.roomId}');
-      final result =
-          await apiClient.postRoomMessage(int.parse(widget.roomId), text);
+      final result = await apiClient.postRoomMessage(
+        int.parse(widget.roomId),
+        text,
+      );
       print('[Chat] Message sent successfully: $result');
       _scrollToBottom();
     } catch (e) {
       print('[Chat] Error sending message: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
-  }
-
-  Future<void> _handlePlanCommand(String message) async {
-    // Extract goal from message: "@plan <goal>"
-    final goal = message.replaceFirst('@plan', '').trim();
-    print('[Chat] Executing @plan command with goal: $goal');
-
-    try {
-      final roomId = int.parse(widget.roomId);
-      final result = await apiClient.generateAIPlan(roomId,
-          goal: goal.isNotEmpty ? goal : null);
-      print('[Chat] Plan result: $result');
-
-      // Show result in dialog
-      if (mounted) {
-        _showAIResult(
-          title: 'AI Plan',
-          result: result,
-        );
-      }
-    } catch (e) {
-      print('[Chat] Error in @plan command: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Plan generation failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _handleMatchCommand(String message) async {
-    // Extract goal from message: "@match <optional goal>"
-    final goal = message.replaceFirst('@match', '').trim();
-    print('[Chat] Executing @match command with goal: $goal');
-
-    try {
-      final roomId = int.parse(widget.roomId);
-      final result = await apiClient.generateAISuggestion(roomId,
-          goal: goal.isNotEmpty ? goal : null);
-      print('[Chat] Suggestion result: $result');
-
-      // Show result in dialog
-      if (mounted) {
-        _showAIResult(
-          title: 'AI Matching',
-          result: result,
-        );
-      }
-    } catch (e) {
-      print('[Chat] Error in @match command: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Matching suggestion failed: $e')),
-        );
-      }
-    }
-  }
-
-  void _showAIResult(
-      {required String title, required Map<String, dynamic> result}) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (result.containsKey('plan')) ...[
-                _buildPlanContent(result['plan']),
-              ] else if (result.containsKey('suggestions')) ...[
-                _buildSuggestionContent(result['suggestions']),
-              ] else ...[
-                Text('Response: ${jsonEncode(result)}'),
-              ]
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanContent(dynamic plan) {
-    if (plan is Map) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (plan['event'] != null) ...[
-            Text(
-              'Event: ${plan['event']}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (plan['items'] != null && (plan['items'] is List)) ...[
-            const Text(
-              'Items:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            ...(plan['items'] as List).map((item) {
-              final itemText = item is Map
-                  ? '${item['name']} - ${item['assigned_to'] ?? 'Unassigned'}'
-                  : item.toString();
-              return Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4),
-                child: Text('• $itemText'),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-          if (plan['timeline'] != null && (plan['timeline'] is List)) ...[
-            const Text(
-              'Timeline:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            ...(plan['timeline'] as List).map((time) {
-              return Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4),
-                child: Text('• $time'),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-          if (plan['narrative'] != null) ...[
-            const Text(
-              'Details:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(plan['narrative'].toString()),
-          ],
-        ],
-      );
-    }
-    return Text('Plan: ${plan.toString()}');
-  }
-
-  Widget _buildSuggestionContent(dynamic suggestions) {
-    if (suggestions is Map) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (suggestions['suggested_invites'] != null) ...[
-            const Text(
-              'Suggested Invites:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            ...(suggestions['suggested_invites'] as List).map((invite) {
-              return Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4),
-                child: Text('• $invite'),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-          if (suggestions['missing_roles'] != null) ...[
-            const Text(
-              'Missing Roles:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            ...(suggestions['missing_roles'] as List).map((role) {
-              return Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4),
-                child: Text('• $role'),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-          if (suggestions['narrative'] != null) ...[
-            const Text(
-              'Details:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(suggestions['narrative'].toString()),
-          ],
-        ],
-      );
-    }
-    return Text('Suggestions: ${suggestions.toString()}');
   }
 
   List<TextSpan> _buildMessageSpans(String content) {
@@ -496,9 +319,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     } catch (e) {
       print('Error uploading image: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
       }
     }
   }
@@ -549,9 +372,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     } catch (e) {
       print('Error inviting user: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to invite user: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to invite user: $e')));
       }
     }
   }
@@ -561,9 +384,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     // If there's an error during initialization, show error message
     if (_hasError) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text('Chat - ${widget.roomName}'),
-        ),
+        appBar: AppBar(title: Text('Chat - ${widget.roomName}')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -634,8 +455,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final maxWidth =
-              constraints.maxWidth > 800 ? 800.0 : constraints.maxWidth;
+          final maxWidth = constraints.maxWidth > 800
+              ? 800.0
+              : constraints.maxWidth;
 
           return Center(
             child: Container(
@@ -646,86 +468,89 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     child: _isConnecting
                         ? Center(child: CircularProgressIndicator())
                         : _messages.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No messages yet',
-                                  style: TextStyle(
-                                      color: kTextGray, fontFamily: 'Satoshi'),
-                                ),
-                              )
-                            : ListView.builder(
-                                controller: _scrollController,
-                                reverse: false,
-                                itemCount: _messages.length,
-                                itemBuilder: (_, i) {
-                                  final item = _messages[i];
-
-                                  if (item is AIEvent) {
-                                    return AIEventCard(event: item);
-                                  }
-
-                                  final msg = item as Message;
-                                  final isCurrentUser =
-                                      msg.username == _currentUsername;
-
-                                  return Align(
-                                    alignment: isCurrentUser
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                    child: Container(
-                                      margin: EdgeInsets.symmetric(
-                                        vertical: 6,
-                                        horizontal: 12,
-                                      ),
-                                      padding: EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: isCurrentUser
-                                            ? kUserBubble
-                                            : kBotBubble,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      constraints: BoxConstraints(
-                                        maxWidth:
-                                            MediaQuery.of(context).size.width *
-                                                0.75,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: isCurrentUser
-                                            ? CrossAxisAlignment.end
-                                            : CrossAxisAlignment.start,
-                                        children: [
-                                          if (!isCurrentUser)
-                                            Text(
-                                              msg.username,
-                                              style: TextStyle(
-                                                fontFamily: 'Boska',
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 12,
-                                                color: kTextDark,
-                                              ),
-                                            ),
-                                          SizedBox(height: 4),
-                                          RichText(
-                                            text: TextSpan(
-                                              children: _buildMessageSpans(
-                                                  msg.content),
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            msg.formattedTime,
-                                            style: TextStyle(
-                                              fontFamily: 'Satoshi',
-                                              fontSize: 11,
-                                              color: kTextGray,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
+                        ? Center(
+                            child: Text(
+                              'No messages yet',
+                              style: TextStyle(
+                                color: kTextGray,
+                                fontFamily: 'Satoshi',
                               ),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            reverse: false,
+                            itemCount: _messages.length,
+                            itemBuilder: (_, i) {
+                              final item = _messages[i];
+
+                              if (item is AIEvent) {
+                                return AIEventCard(event: item);
+                              }
+
+                              final msg = item as Message;
+                              final isCurrentUser =
+                                  msg.username == _currentUsername;
+
+                              return Align(
+                                alignment: isCurrentUser
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: Container(
+                                  margin: EdgeInsets.symmetric(
+                                    vertical: 6,
+                                    horizontal: 12,
+                                  ),
+                                  padding: EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentUser
+                                        ? kUserBubble
+                                        : kBotBubble,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                        0.75,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: isCurrentUser
+                                        ? CrossAxisAlignment.end
+                                        : CrossAxisAlignment.start,
+                                    children: [
+                                      if (!isCurrentUser)
+                                        Text(
+                                          msg.username,
+                                          style: TextStyle(
+                                            fontFamily: 'Boska',
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            color: kTextDark,
+                                          ),
+                                        ),
+                                      SizedBox(height: 4),
+                                      RichText(
+                                        text: TextSpan(
+                                          children: _buildMessageSpans(
+                                            msg.content,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        msg.formattedTime,
+                                        style: TextStyle(
+                                          fontFamily: 'Satoshi',
+                                          fontSize: 11,
+                                          color: kTextGray,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                   // LLM 提示信息
                   Padding(
@@ -777,8 +602,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                   width: 1,
                                 ),
                               ),
-                              child: Icon(Icons.image,
-                                  color: kSecondary, size: 20),
+                              child: Icon(
+                                Icons.image,
+                                color: kSecondary,
+                                size: 20,
+                              ),
                             ),
                           ),
                         ),

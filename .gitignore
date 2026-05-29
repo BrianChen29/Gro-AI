@@ -1,7 +1,9 @@
 .env
-.env.example
 .venv/
 __pycache__/
+*.pyc
+!.env.example
+!backend/.env.example
 
 .DS_Store
 
@@ -24,9 +26,14 @@ flutter_frontend/ios/Flutter/ephemeral/
 flutter_frontend/ios/Flutter/App.framework
 flutter_frontend/ios/Flutter/Flutter.framework
 flutter_frontend/ios/Runner/GeneratedPluginRegistrant.*
+**/GeneratedPluginRegistrant.*
 
 # Android
 android/.gradle/
 android/app/build/
+**/local.properties
+**/.gradle/
 
 *.sqlite
+*.sqlite3
+flutter_frontend/.firebase/
