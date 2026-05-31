@@ -1,5 +1,17 @@
 # Gro AI
 
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-Mobile%20%2B%20Web-02569B?logo=flutter&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-Cloud%20SQL-4479A1?logo=mysql&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-Async%20ORM-D71F00?logo=sqlalchemy&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-LLM-412991?logo=openai&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-LLM-4285F4?logo=googlegemini&logoColor=white)
+![WebSocket](https://img.shields.io/badge/WebSocket-Realtime%20Chat-4B5563)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)
+![Cloud Run](https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)
+![RAG](https://img.shields.io/badge/RAG-Vector%20Search-7C3AED)
+
 Gro AI is a team-built B2B grocery procurement platform that turns group chat,
 restaurant inventory, and grocery catalog data into AI-assisted purchasing
 workflows.
