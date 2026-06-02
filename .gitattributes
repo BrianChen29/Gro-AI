@@ -1,0 +1,5 @@
+# Keep GitHub language stats focused on the backend/AI work highlighted in
+# this portfolio repo. The Flutter client remains part of the project, but it
+# is not the primary contribution represented by the pinned repository language.
+flutter_frontend/** -linguist-detectable
+twa_android_src/** -linguist-detectable
