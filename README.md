@@ -1,4 +1,4 @@
-# Gro AI
+# Gro AI — AI-Powered Restaurant Procurement Platform
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
@@ -10,27 +10,27 @@
 ![WebSocket](https://img.shields.io/badge/WebSocket-Realtime%20Chat-4B5563)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)
 ![Cloud Run](https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)
-![RAG](https://img.shields.io/badge/RAG-Vector%20Search-7C3AED)
+![Catalog Grounding](https://img.shields.io/badge/Catalog%20Grounding-Exact%20Cosine%20Search-7C3AED)
 
-Gro AI is a team-built B2B grocery procurement platform that turns group chat,
-restaurant inventory, and grocery catalog data into AI-assisted purchasing
-workflows.
+Gro AI is an AI-powered B2B procurement and collaboration platform connecting
+restaurants with grocery suppliers. It brings group chat, restaurant inventory,
+supplier catalog data, and AI-assisted planning into one shared workflow.
 
-The app combines a Flutter client, FastAPI backend, MySQL persistence, real-time
-WebSocket chat, and OpenAI/Gemini-powered planning modules for inventory
-analysis, menu suggestions, restock planning, and procurement list generation.
+The app combines a Flutter client, FastAPI backend, MySQL persistence, WebSocket
+chat delivery, and OpenAI/Gemini-powered workflows for inventory analysis, menu
+planning, restocking, and supplier coordination.
 
 ## Project Context
 
-Gro AI was developed as a USC Applied Data Science team project with a
-product-oriented mindset. The team conducted domain research and spoke with
+Gro AI was developed by a three-person USC Applied Data Science course team with
+a product-oriented mindset. The team conducted domain research and spoke with
 grocery managers and employees to understand procurement, inventory, and
 communication pain points in real grocery operations.
 
-The project was designed as a functional prototype for a B2B grocery procurement
-workflow, with features shaped around stakeholder needs such as inventory
-tracking, group coordination, restock planning, menu ideation, and procurement
-list generation.
+The project was designed as a functional prototype for restaurant–supplier
+procurement collaboration, with features shaped around stakeholder needs such as
+inventory tracking, group coordination, restock planning, menu planning, and
+procurement-list generation.
 
 While the system is not currently operated as a live commercial SaaS product, it
 was built to demonstrate how GenAI, backend systems, real-time communication,
@@ -39,21 +39,24 @@ assistant.
 
 ## Technical Highlights
 
-- **Project type:** Full-stack GenAI application with retrieval-augmented
-  procurement workflows
+- **Project type:** AI-powered restaurant procurement and collaboration
+  application with catalog-grounded workflows
 - **Core stack:** FastAPI, SQLAlchemy, MySQL/Cloud SQL, Flutter, WebSocket,
-  OpenAI, Gemini, Docker, GCP Cloud Run, Cloud Build
-- **AI features:** LLM command router, structured JSON generation, grocery-item
-  embedding search, inventory-aware recommendations, procurement plan generation
-- **Backend features:** Authentication, room management, group chat, inventory
-  tracking, shopping lists, WebSocket messaging, and AI-command workflows
-- **Deployment:** Backend was deployed to GCP Cloud Run with Cloud SQL and
-  Cloud Build for GitHub-triggered deployment. The live cloud resources may be
-  disabled outside demos to avoid ongoing costs.
+  OpenAI, Gemini, Docker, GCP Cloud Run, Cloud Build, GCS, Firebase Hosting
+- **AI features:** LLM command router, best-effort structured JSON processing,
+  exact-cosine catalog grounding, inventory-aware recommendations, and
+  procurement planning
+- **Team-built application features:** Authentication, room management, group
+  chat, inventory tracking, shopping lists, WebSocket messaging, and AI-command
+  workflows
+- **Deployment:** The Dockerized FastAPI backend was deployed to GCP Cloud Run
+  through Cloud Build with Cloud SQL and GCS; the Flutter Web frontend was built
+  and deployed to Firebase Hosting. Live cloud resources may be disabled outside
+  demos to avoid ongoing costs.
 
 ## What The App Does
 
-Gro AI helps a restaurant or grocery-buying team coordinate procurement inside a
+Gro AI helps restaurants and grocery suppliers coordinate procurement inside a
 shared chat room.
 
 Users can:
@@ -61,27 +64,40 @@ Users can:
 - Create accounts, log in, create rooms, invite members, and chat in real time.
 - Track inventory items with stock and safety-stock thresholds.
 - Ask the AI assistant to analyze low-stock items.
-- Generate menu ideas from available inventory.
+- Plan menus from available inventory.
 - Generate restock recommendations from low-stock inventory.
 - Generate a consolidated procurement plan from group chat context.
 - Save generated procurement items into shopping lists.
 
 ## My Contributions
 
-This was a group project. My primary contributions focused on backend
-development and AI engineering:
+This was a three-person USC course team project. I led backend development and
+LLM integration for the application-specific AI track:
 
-- Built most FastAPI backend routes for auth, rooms, chat, inventory, shopping
-  lists, WebSocket messaging, and AI-command flows.
-- Integrated OpenAI and Gemini APIs through a shared LLM wrapper.
-- Built the LLM command routing for `@gro`, `@gro analyze`, `@gro menu`,
-  `@gro restock`, `@gro plan`, and `@inventory`.
-- Implemented grocery embeddings and vector-based catalog matching for
-  retrieval-augmented recommendations.
-- Built the AI modules for inventory analysis, menu generation, restock
-  planning, and procurement planning.
-- Dockerized and deployed the backend to GCP Cloud Run connected to Cloud SQL.
-- Configured Cloud Build for GitHub-triggered deployment.
+- Conceived and implemented the FastAPI/LLM workflows for `@gro analyze`,
+  `@gro menu`, `@gro restock`, and `@gro plan`, including chat-context
+  procurement planning and OpenAI/Gemini integration.
+- Defined and processed structured LLM outputs, enriched them with real catalog
+  metadata, and packaged them as backend-to-frontend AI events using a stable
+  `event` / `narrative` / `payload` contract.
+- Built a catalog-grounding pipeline using precomputed OpenAI embeddings,
+  SQLite caching, in-memory exact cosine search, and product-metadata enrichment
+  so LLM recommendations could reference real catalog items.
+- Integrated the AI workflows with the team's existing chat, room, inventory,
+  shopping-list, database, and WebSocket interfaces. Auth, rooms, inventory,
+  shopping-list services, the core SQL schema, and the WebSocket manager were
+  provided foundations or teammate-led; I contributed to interface discussions,
+  integration, review, and some joint implementation.
+- Adapted data from my backend/AI flows to the teammate-led SQL schema and
+  worked with the Flutter teammate, who implemented parsing and UI cards around
+  the event contract I provided.
+- Owned application cloud deployment: Docker/Cloud Build/Cloud Run/Cloud SQL/GCS
+  for the FastAPI AI backend, plus the build and deployment of the team-developed
+  Flutter Web frontend to Firebase Hosting.
+
+I do not claim sole authorship of the general backend services, WebSocket
+infrastructure, core SQL schema, or Flutter UI. Current LLM output handling is
+best-effort JSON processing rather than complete Pydantic schema validation.
 
 ## Current Model Support
 
@@ -131,12 +147,16 @@ inventory-aware recommendations.
 ## AI Workflow
 
 1. A user sends a chat message such as `@gro analyze` or `@gro plan`.
-2. The backend stores and broadcasts the original chat message.
+2. The existing message flow stores and broadcasts the original chat message.
 3. The command router in `backend/app.py` detects the AI command.
-4. Inventory, chat history, and relevant grocery catalog matches are loaded.
-5. The selected LLM provider generates structured JSON output.
-6. The backend persists the AI event and broadcasts it over WebSocket.
-7. Flutter renders the AI result as a structured card in the chat UI.
+4. Depending on the command, the workflow loads inventory, chat history, and
+   relevant supplier-catalog matches.
+5. The selected LLM provider generates JSON that is processed with the current
+   best-effort parsing path.
+6. The backend enriches the result with real product metadata and packages the
+   backend-to-frontend AI event contract. The current `@gro plan` branch
+   broadcasts its structured event; not every AI event is claimed to persist.
+7. Flutter parses the contract and renders the result as a structured card.
 
 ## Repository Structure
 
@@ -306,6 +326,8 @@ Main backend routes include:
 - WebSocket connections are room-scoped but not independently authenticated at connection time.
 - CORS is permissive for local development and demo purposes.
 - Automated test coverage is limited and should be expanded before production use.
+- LLM outputs use best-effort JSON processing and do not yet have complete
+  Pydantic schema validation or a catalog/inventory whitelist on every workflow.
 - Some legacy documentation files may still reference earlier prototypes or experiments.
 
 ## Future Improvements
