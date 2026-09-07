@@ -8,21 +8,16 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from vector.catalog_items import CatalogItemLike, catalog_item_vector_record
 from vector.store import VectorRecord, VectorStore
 from vector.vector_cache import get_embeddings_db_path, read_cached_embeddings
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-
-class CatalogItemLike(Protocol):
-    id: int
-    title: str
-    sub_category: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,16 +103,7 @@ def build_catalog_sync_plan(
         item = items_by_id[item_id]
         vector = embeddings_by_id[item_id]
         dimensions.add(vector.size)
-        records.append(
-            VectorRecord(
-                item_id=item_id,
-                values=vector,
-                metadata={
-                    "title": str(item.title),
-                    "sub_category": str(item.sub_category),
-                },
-            )
-        )
+        records.append(catalog_item_vector_record(item, vector))
 
     if len(dimensions) > 1:
         raise ValueError(

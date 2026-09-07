@@ -9,8 +9,11 @@ from unittest.mock import patch
 import numpy as np
 
 from vector.vector_cache import (
+    delete_cached_embeddings,
+    get_cached_embedding_dimension,
     get_embeddings_db_path,
     read_cached_embeddings,
+    upsert_cached_embeddings,
 )
 
 
@@ -64,6 +67,43 @@ class VectorCacheTests(unittest.TestCase):
             clear=True,
         ):
             self.assertEqual(get_embeddings_db_path(), Path(configured))
+
+    def test_upserts_and_deletes_cached_embeddings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "embeddings.sqlite"
+            self._create_cache(path, [(7, json.dumps([0.1, 0.2]))])
+
+            upserted_count = upsert_cached_embeddings(
+                path,
+                [
+                    (7, np.array([0.7, 0.8])),
+                    (8, np.array([0.3, 0.4])),
+                ],
+            )
+            rows_after_upsert = dict(read_cached_embeddings(path))
+            deleted_count = delete_cached_embeddings(path, [7, 999])
+            rows_after_delete = dict(read_cached_embeddings(path))
+
+        self.assertEqual(upserted_count, 2)
+        np.testing.assert_allclose(rows_after_upsert[7], [0.7, 0.8])
+        np.testing.assert_allclose(rows_after_upsert[8], [0.3, 0.4])
+        self.assertEqual(deleted_count, 1)
+        self.assertNotIn(7, rows_after_delete)
+        self.assertIn(8, rows_after_delete)
+
+    def test_dimension_mismatch_is_rejected_without_changing_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "embeddings.sqlite"
+            self._create_cache(path, [(7, json.dumps([0.1, 0.2]))])
+
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                upsert_cached_embeddings(path, [(7, np.array([1.0, 2.0, 3.0]))])
+
+            rows = dict(read_cached_embeddings(path))
+            dimension = get_cached_embedding_dimension(path)
+
+        np.testing.assert_allclose(rows[7], [0.1, 0.2])
+        self.assertEqual(dimension, 2)
 
 
 if __name__ == "__main__":

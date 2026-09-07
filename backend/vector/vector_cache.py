@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +21,33 @@ _cached_vectors: list[EmbeddingRow] | None = None
 _cached_path: Path | None = None
 
 
+def _as_vector(item_id: int, raw_vector: object) -> np.ndarray:
+    try:
+        vector = np.asarray(raw_vector, dtype=np.float32).reshape(-1)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Invalid cached embedding for grocery item {item_id}"
+        ) from exc
+
+    if vector.size == 0 or not np.all(np.isfinite(vector)):
+        raise ValueError(f"Invalid cached embedding for grocery item {item_id}")
+    return vector
+
+
+def _existing_database_uri(path: str | Path, *, mode: str) -> tuple[Path, str]:
+    db_path = Path(path)
+    if not db_path.is_file():
+        raise FileNotFoundError(f"Embeddings database not found at {db_path}")
+    return db_path, f"{db_path.resolve().as_uri()}?mode={mode}"
+
+
+def _clear_memory_cache() -> None:
+    global _cached_path, _cached_vectors
+
+    _cached_vectors = None
+    _cached_path = None
+
+
 def get_embeddings_db_path() -> Path:
     """Resolve the cache path without creating an empty SQLite database."""
 
@@ -36,12 +64,9 @@ def get_embeddings_db_path() -> Path:
 def read_cached_embeddings(path: str | Path) -> list[EmbeddingRow]:
     """Read and validate cached vectors, raising on missing or corrupt data."""
 
-    db_path = Path(path)
-    if not db_path.is_file():
-        raise FileNotFoundError(f"Embeddings database not found at {db_path}")
+    db_path, read_only_uri = _existing_database_uri(path, mode="ro")
 
     try:
-        read_only_uri = f"{db_path.resolve().as_uri()}?mode=ro"
         with sqlite3.connect(read_only_uri, uri=True) as connection:
             rows = connection.execute(
                 "SELECT grocery_item_id, embedding "
@@ -55,21 +80,117 @@ def read_cached_embeddings(path: str | Path) -> list[EmbeddingRow]:
     vectors: list[EmbeddingRow] = []
     for item_id, raw_embedding in rows:
         try:
-            vector = np.asarray(
-                json.loads(raw_embedding),
-                dtype=np.float32,
-            ).reshape(-1)
-        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            decoded_embedding = json.loads(raw_embedding)
+        except (json.JSONDecodeError, TypeError) as exc:
             raise ValueError(
                 f"Invalid cached embedding for grocery item {item_id}"
             ) from exc
-
-        if vector.size == 0 or not np.all(np.isfinite(vector)):
-            raise ValueError(
-                f"Invalid cached embedding for grocery item {item_id}"
-            )
+        vector = _as_vector(int(item_id), decoded_embedding)
         vectors.append((int(item_id), vector))
     return vectors
+
+
+def get_cached_embedding_dimension(path: str | Path) -> int | None:
+    """Return the cache dimension and reject a mixed-dimension cache."""
+
+    dimensions = {
+        vector.size for _, vector in read_cached_embeddings(path)
+    }
+    if len(dimensions) > 1:
+        raise ValueError(
+            "Cached embeddings have inconsistent dimensions: "
+            f"{sorted(dimensions)}"
+        )
+    return next(iter(dimensions)) if dimensions else None
+
+
+def upsert_cached_embeddings(
+    path: str | Path,
+    embeddings: Iterable[EmbeddingRow],
+) -> int:
+    """Transactionally insert or replace vectors in an existing cache."""
+
+    prepared: dict[int, np.ndarray] = {}
+    for raw_item_id, raw_vector in embeddings:
+        item_id = int(raw_item_id)
+        if item_id in prepared:
+            raise ValueError(f"Duplicate embedding update ID {item_id}")
+        prepared[item_id] = _as_vector(item_id, raw_vector)
+    if not prepared:
+        return 0
+
+    existing_dimension = get_cached_embedding_dimension(path)
+    incoming_dimensions = {vector.size for vector in prepared.values()}
+    if len(incoming_dimensions) != 1:
+        raise ValueError(
+            "Embedding updates have inconsistent dimensions: "
+            f"{sorted(incoming_dimensions)}"
+        )
+    incoming_dimension = next(iter(incoming_dimensions))
+    if (
+        existing_dimension is not None
+        and incoming_dimension != existing_dimension
+    ):
+        raise ValueError(
+            f"Embedding update dimension {incoming_dimension} does not match "
+            f"cache dimension {existing_dimension}"
+        )
+
+    db_path, writable_uri = _existing_database_uri(path, mode="rw")
+    rows = [
+        (
+            item_id,
+            json.dumps(vector.tolist(), separators=(",", ":")),
+        )
+        for item_id, vector in prepared.items()
+    ]
+    try:
+        with sqlite3.connect(writable_uri, uri=True) as connection:
+            connection.executemany(
+                "INSERT INTO grocery_item_embeddings "
+                "(grocery_item_id, embedding) VALUES (?, ?) "
+                "ON CONFLICT(grocery_item_id) DO UPDATE SET "
+                "embedding = excluded.embedding",
+                rows,
+            )
+    except sqlite3.Error as exc:
+        raise RuntimeError(
+            f"Could not update embeddings database at {db_path}: {exc}"
+        ) from exc
+
+    _clear_memory_cache()
+    return len(rows)
+
+
+def delete_cached_embeddings(
+    path: str | Path,
+    item_ids: Sequence[int],
+) -> int:
+    """Transactionally remove item IDs from an existing embedding cache."""
+
+    unique_ids = tuple(dict.fromkeys(int(item_id) for item_id in item_ids))
+    if not unique_ids:
+        return 0
+
+    # Validate both the file and every existing row before changing the cache.
+    read_cached_embeddings(path)
+    db_path, writable_uri = _existing_database_uri(path, mode="rw")
+    try:
+        with sqlite3.connect(writable_uri, uri=True) as connection:
+            before_changes = connection.total_changes
+            connection.executemany(
+                "DELETE FROM grocery_item_embeddings "
+                "WHERE grocery_item_id = ?",
+                [(item_id,) for item_id in unique_ids],
+            )
+            deleted_count = connection.total_changes - before_changes
+    except sqlite3.Error as exc:
+        raise RuntimeError(
+            f"Could not update embeddings database at {db_path}: {exc}"
+        ) from exc
+
+    _clear_memory_cache()
+    return deleted_count
 
 
 def load_embeddings_into_memory():

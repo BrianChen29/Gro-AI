@@ -145,8 +145,9 @@ MySQL / Cloud SQL grocery_items
 The retrieval layer keeps the existing SQLite-backed exact cosine search as its
 default and supports an optional async Pinecone backend behind the same
 `VectorStore` interface. Existing SQLite vectors can be validated and migrated
-with a dry-run-first initial sync command. MySQL remains the source of truth for
-complete product metadata.
+with a dry-run-first initial sync command. Targeted, dry-run-first update and
+delete commands keep Pinecone and the SQLite fallback cache aligned as catalog
+rows change. MySQL remains the source of truth for complete product metadata.
 
 ## AI Workflow
 
@@ -170,9 +171,9 @@ complete product metadata.
 │   ├── app.py                    # FastAPI routes, WebSocket, AI command router
 │   ├── auth.py                   # JWT auth and password hashing
 │   ├── db.py                     # SQLAlchemy models and async DB session
-│   ├── llm.py                    # OpenAI/Gemini LLM wrapper and embeddings
+│   ├── llm.py                    # OpenAI/Gemini chat wrapper
 │   ├── llm_modules/              # Inventory/menu/restock/procurement modules
-│   ├── vector/                   # VectorStore backends, cache, sync, and search
+│   ├── vector/                   # Embeddings, VectorStore, sync, and search
 │   ├── load_groceries.py         # Grocery CSV loader
 │   ├── GroceryDataset.csv        # Small grocery catalog sample
 │   └── .env.example              # Local backend environment template

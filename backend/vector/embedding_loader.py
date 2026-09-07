@@ -7,7 +7,8 @@ from tqdm.asyncio import tqdm  # Recommended for progress visualization
 
 # Import your existing modules
 from db import SessionLocal, GroceryItem
-from llm import get_embedding
+from vector.catalog_items import catalog_item_embedding_text
+from vector.embedding_client import get_embedding
 
 # --- Configuration ---
 # Use the same explicit override as runtime search and catalog sync. Otherwise,
@@ -40,10 +41,10 @@ async def process_item(semaphore, item):
     """
     async with semaphore:
         try:
-            # Combine title and sub_category for richer semantic search context
-            text_to_embed = f"{item.title} | {item.sub_category}"
+            # Use the same canonical text as incremental synchronization.
+            text_to_embed = catalog_item_embedding_text(item)
             
-            # Call the LLM module (calls OpenAI text-embedding-3-large)
+            # Call the configured OpenAI embedding model.
             emb = await get_embedding(text_to_embed)
             
             # Basic validation

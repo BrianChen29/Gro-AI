@@ -7,7 +7,7 @@ async def embed_query(text: str):
     """LLM embedding for the search query"""
     # Keep the provider import at the integration boundary so the vector-store
     # layer can be unit-tested without initializing external LLM SDKs.
-    from llm import get_embedding
+    from vector.embedding_client import get_embedding
 
     return np.array(await get_embedding(text), dtype=np.float32)
 
