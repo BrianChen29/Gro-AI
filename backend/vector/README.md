@@ -26,6 +26,7 @@ First configure `backend/.env`:
 
 ```text
 VECTOR_STORE_BACKEND=pinecone
+VECTOR_SEARCH_MIN_SCORE=
 EMBEDDINGS_DB_PATH=vector/embeddings.sqlite
 PINECONE_API_KEY=...
 PINECONE_INDEX_HOST=...
@@ -180,9 +181,58 @@ searches the selected store once per case. It reports:
 - **MRR@K:** average reciprocal rank of the first relevant result.
 
 Every returned candidate retains its rank, vector similarity score, relevance
-label, and metadata. This evidence can later be used to compare backends or
-calibrate a score threshold/reranker. Aggregate metrics are not written into
-Pinecone and do not directly alter production search.
+label, and metadata. When `--min-score` is omitted, the report also tests each
+observed cosine score as an inclusive global cutoff and recommends the one with
+the highest F1. Ties prefer higher recall, then higher precision, then the lower
+cutoff. A recommendation is intentionally unavailable unless the retrieved
+candidate set contains both relevant and non-relevant examples.
+
+The threshold analysis uses micro-averaged binary counts across all cases:
+retained relevant hits are true positives, retained non-relevant hits are false
+positives, and labeled relevant IDs that are filtered out or absent from the
+top-K candidates are false negatives. This precision is different from
+Precision@K: Precision@K always divides by K, while threshold precision divides
+by the number of candidates retained by the cutoff.
+
+### Calibrate, validate, then enable a threshold
+
+Split the reviewed cases into a calibration file and a separate held-out file
+before choosing a threshold. Use the same `--top-k` value as production. First
+generate a recommendation from only the calibration cases:
+
+```bash
+python -m vector.retrieval_eval \
+  --cases vector/evaluation_calibration.json \
+  --top-k 10 > calibration-report.json
+```
+
+Copy `score_threshold_analysis.recommended_min_score` from that report and
+evaluate that fixed value on the held-out cases:
+
+```bash
+python -m vector.retrieval_eval \
+  --cases vector/evaluation_held_out.json \
+  --top-k 10 \
+  --min-score 0.72 > held-out-report.json
+```
+
+The number above is only an example; do not use it as Gro AI's cutoff. If the
+held-out tradeoff is acceptable, set the reviewed value in `backend/.env`:
+
+```text
+VECTOR_SEARCH_MIN_SCORE=0.72
+```
+
+Leaving the setting blank preserves the existing top-K behavior. A configured
+cutoff is applied after vector-store retrieval and may return fewer than K
+items. Recalibrate after changing the embedding model, vector backend/index,
+catalog, relevance labels, or production top-K. The evaluator never writes the
+recommendation into `.env`, Pinecone, or application state.
+
+This is a global relevance gate, not a reranker: it removes weak matches but
+does not change the order of retained results. A future reranker would need its
+own labeled features and evaluation rather than using aggregate metrics as
+query-time inputs.
 
 The regular evaluation is read-only but does call OpenAI and the selected
 vector store. Memory-mode evaluation fails loudly if its SQLite cache is

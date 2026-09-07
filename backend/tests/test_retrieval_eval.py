@@ -223,6 +223,59 @@ class RetrievalMetricTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=[[1.0, 0.0]]),
             )
 
+    async def test_applies_inclusive_score_threshold_before_metrics(self):
+        case = RetrievalEvaluationCase(
+            case_id="milk",
+            query="milk",
+            relevant_item_ids=(10, 20),
+        )
+        store = Mock()
+        store.search = AsyncMock(
+            return_value=[
+                SearchHit(item_id=30, score=0.90),
+                SearchHit(item_id=10, score=0.80),
+                SearchHit(item_id=20, score=0.79),
+            ]
+        )
+
+        report = await evaluate_retrieval(
+            [case],
+            store,
+            AsyncMock(return_value=[[1.0, 0.0]]),
+            top_k=3,
+            min_score=0.80,
+        )
+
+        self.assertEqual(report.applied_min_score, 0.80)
+        self.assertEqual(
+            [hit.item_id for hit in report.case_results[0].hits],
+            [30, 10],
+        )
+        self.assertAlmostEqual(report.mean_precision_at_k, 1 / 3)
+        self.assertEqual(report.mean_recall_at_k, 0.5)
+        self.assertEqual(report.mean_reciprocal_rank_at_k, 0.5)
+
+    async def test_rejects_hits_that_are_not_in_descending_score_order(self):
+        case = RetrievalEvaluationCase(
+            case_id="milk",
+            query="milk",
+            relevant_item_ids=(10,),
+        )
+        store = Mock()
+        store.search = AsyncMock(
+            return_value=[
+                SearchHit(item_id=10, score=0.80),
+                SearchHit(item_id=20, score=0.90),
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "out of score order"):
+            await evaluate_retrieval(
+                [case],
+                store,
+                AsyncMock(return_value=[[1.0, 0.0]]),
+            )
+
 
 class RetrievalEvaluationCliTests(unittest.IsolatedAsyncioTestCase):
     def test_parser_defaults_to_top_five(self):
@@ -230,6 +283,19 @@ class RetrievalEvaluationCliTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(args.top_k, 5)
         self.assertFalse(args.validate_only)
+        self.assertIsNone(args.min_score)
+
+    def test_parser_validates_cosine_score_threshold(self):
+        args = _build_parser().parse_args(
+            ["--cases", "cases.json", "--min-score", "0.72"]
+        )
+
+        self.assertEqual(args.min_score, 0.72)
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                _build_parser().parse_args(
+                    ["--cases", "cases.json", "--min-score", "1.1"]
+                )
 
     async def test_validate_only_does_not_load_embedding_or_vector_store(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -360,8 +426,79 @@ class RetrievalEvaluationCliTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["embedding_model"], "test-embedding-model")
         self.assertEqual(payload["metrics"]["hit_rate_at_k"], 1.0)
         self.assertEqual(payload["cases"][0]["hits"][0]["score"], 0.91)
+        self.assertEqual(
+            payload["score_threshold_analysis"]["mode"],
+            "calibration",
+        )
+        self.assertEqual(
+            payload["score_threshold_analysis"]["status"],
+            "unavailable",
+        )
         self.assertIn("backend status message", errors.getvalue())
         close_store.assert_awaited_once_with()
+
+    async def test_cli_applies_fixed_threshold_in_validation_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "held-out-cases.json"
+            write_dataset(
+                path,
+                [
+                    {
+                        "case_id": "milk",
+                        "query": "milk",
+                        "relevant_item_ids": [10, 20],
+                    }
+                ],
+            )
+            store = Mock()
+            store.search = AsyncMock(
+                return_value=[
+                    SearchHit(item_id=10, score=0.91),
+                    SearchHit(item_id=30, score=0.80),
+                    SearchHit(item_id=20, score=0.70),
+                ]
+            )
+            output = io.StringIO()
+            args = SimpleNamespace(
+                cases=path,
+                top_k=3,
+                min_score=0.85,
+                validate_only=False,
+            )
+
+            with (
+                patch("vector.factory.get_vector_store", return_value=store),
+                patch("vector.factory.close_vector_store", AsyncMock()),
+                patch(
+                    "vector.factory.vector_store_backend_name",
+                    return_value="pinecone",
+                ),
+                patch(
+                    "vector.factory.uses_local_embedding_cache",
+                    return_value=False,
+                ),
+                patch(
+                    "vector.embedding_client.get_embedding_model",
+                    return_value="test-embedding-model",
+                ),
+                patch(
+                    "vector.embedding_client.get_embeddings",
+                    AsyncMock(return_value=[[1.0, 0.0]]),
+                ),
+                redirect_stdout(output),
+            ):
+                await _run_cli(args)
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["applied_min_score"], 0.85)
+        self.assertEqual(
+            [hit["item_id"] for hit in payload["cases"][0]["hits"]],
+            [10],
+        )
+        analysis = payload["score_threshold_analysis"]
+        self.assertEqual(analysis["mode"], "validation")
+        self.assertEqual(analysis["metrics"]["true_positive_count"], 1)
+        self.assertEqual(analysis["metrics"]["false_negative_count"], 1)
 
 
 if __name__ == "__main__":

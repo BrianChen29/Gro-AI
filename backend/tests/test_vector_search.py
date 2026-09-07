@@ -24,6 +24,10 @@ class VectorSearchTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=query_vector),
             ) as embed_query,
             patch("vector.vector_search.get_vector_store", return_value=store),
+            patch(
+                "vector.vector_search.get_vector_search_min_score",
+                return_value=None,
+            ),
         ):
             result = await search_similar_items("oat milk", top_k=2)
 
@@ -33,6 +37,34 @@ class VectorSearchTests(unittest.IsolatedAsyncioTestCase):
         call = store.search.await_args
         np.testing.assert_array_equal(call.args[0], query_vector)
         self.assertEqual(call.kwargs, {"top_k": 2})
+
+    async def test_configured_score_threshold_filters_hits_inclusively(self):
+        query_vector = np.array([1.0, 0.0], dtype=np.float32)
+        store = Mock()
+        store.search = AsyncMock(
+            return_value=[
+                SearchHit(item_id=11, score=0.91),
+                SearchHit(item_id=22, score=0.80),
+                SearchHit(item_id=33, score=0.79),
+            ]
+        )
+
+        with (
+            patch(
+                "vector.vector_search.embed_query",
+                AsyncMock(return_value=query_vector),
+            ),
+            patch("vector.vector_search.get_vector_store", return_value=store),
+            patch(
+                "vector.vector_search.get_vector_search_min_score",
+                return_value=0.80,
+            ),
+        ):
+            result = await search_similar_items("oat milk", top_k=3)
+
+        self.assertEqual(result, [(11, 0.91), (22, 0.80)])
+        store.search.assert_awaited_once()
+        self.assertEqual(store.search.await_args.kwargs, {"top_k": 3})
 
 
 if __name__ == "__main__":

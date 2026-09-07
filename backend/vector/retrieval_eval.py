@@ -15,7 +15,12 @@ from typing import Callable
 
 import numpy as np
 
+from vector.search_policy import filter_search_hits, validate_min_score
 from vector.store import MetadataValue, SearchHit, VectorFilter, VectorStore
+from vector.threshold_calibration import (
+    calculate_score_threshold_metrics,
+    calibrate_score_threshold,
+)
 
 
 EVALUATION_SCHEMA_VERSION = 1
@@ -91,6 +96,7 @@ class RetrievalCaseResult:
 @dataclass(frozen=True, slots=True)
 class RetrievalEvaluationReport:
     top_k: int
+    applied_min_score: float | None
     case_results: tuple[RetrievalCaseResult, ...]
     hit_rate_at_k: float
     mean_precision_at_k: float
@@ -101,6 +107,7 @@ class RetrievalEvaluationReport:
         return {
             "case_count": len(self.case_results),
             "top_k": self.top_k,
+            "applied_min_score": self.applied_min_score,
             "metrics": {
                 "hit_rate_at_k": self.hit_rate_at_k,
                 "mean_precision_at_k": self.mean_precision_at_k,
@@ -294,6 +301,7 @@ def _evaluate_case_hits(
     raw_hits: Sequence[SearchHit],
     *,
     top_k: int,
+    min_score: float | None,
 ) -> RetrievalCaseResult:
     hits = list(raw_hits[:top_k])
     hit_ids = [int(hit.item_id) for hit in hits]
@@ -302,15 +310,25 @@ def _evaluate_case_hits(
             f"Vector store returned duplicate item IDs for case {case.case_id!r}"
         )
 
-    relevant_ids = set(case.relevant_item_ids)
-    ranked_hits: list[RankedEvaluationHit] = []
-    relevant_ranks: list[int] = []
-    for rank, hit in enumerate(hits, start=1):
+    scores: list[float] = []
+    for hit in hits:
         score = float(hit.score)
         if not math.isfinite(score):
             raise ValueError(
                 f"Vector store returned a non-finite score for item {hit.item_id}"
             )
+        scores.append(score)
+    if any(score > previous for previous, score in zip(scores, scores[1:])):
+        raise ValueError(
+            f"Vector store returned hits out of score order for case {case.case_id!r}"
+        )
+
+    hits = filter_search_hits(hits, min_score)
+    relevant_ids = set(case.relevant_item_ids)
+    ranked_hits: list[RankedEvaluationHit] = []
+    relevant_ranks: list[int] = []
+    for rank, hit in enumerate(hits, start=1):
+        score = float(hit.score)
         is_relevant = int(hit.item_id) in relevant_ids
         if is_relevant:
             relevant_ranks.append(rank)
@@ -344,6 +362,7 @@ async def evaluate_retrieval(
     embed_batch: EmbeddingBatchFunction,
     *,
     top_k: int = 5,
+    min_score: float | None = None,
 ) -> RetrievalEvaluationReport:
     """Embed all queries once, search each case, and aggregate IR metrics."""
 
@@ -351,6 +370,7 @@ async def evaluate_retrieval(
         raise ValueError("top_k must be greater than zero")
     if not cases:
         raise ValueError("At least one retrieval evaluation case is required")
+    applied_min_score = validate_min_score(min_score) if min_score is not None else None
 
     raw_vectors = list(await embed_batch([case.query for case in cases]))
     query_vectors = _validate_query_vectors(
@@ -365,11 +385,19 @@ async def evaluate_retrieval(
             top_k=top_k,
             filters=(dict(case.filters) if case.filters else None),
         )
-        case_results.append(_evaluate_case_hits(case, hits, top_k=top_k))
+        case_results.append(
+            _evaluate_case_hits(
+                case,
+                hits,
+                top_k=top_k,
+                min_score=applied_min_score,
+            )
+        )
 
     case_count = len(case_results)
     return RetrievalEvaluationReport(
         top_k=top_k,
+        applied_min_score=applied_min_score,
         case_results=tuple(case_results),
         hit_rate_at_k=(sum(result.hit_at_k for result in case_results) / case_count),
         mean_precision_at_k=(
@@ -430,9 +458,24 @@ async def _run_cli(args: argparse.Namespace) -> None:
                 store,
                 get_embeddings,
                 top_k=args.top_k,
+                min_score=getattr(args, "min_score", None),
             )
         finally:
             await close_vector_store()
+
+    if report.applied_min_score is None:
+        threshold_analysis = calibrate_score_threshold(report.case_results).as_dict()
+    else:
+        threshold_metrics = calculate_score_threshold_metrics(
+            report.case_results,
+            report.applied_min_score,
+        )
+        threshold_analysis = {
+            "mode": "validation",
+            "status": "evaluated",
+            "applied_min_score": report.applied_min_score,
+            "metrics": threshold_metrics.as_dict(),
+        }
 
     output = {
         "mode": "evaluate",
@@ -442,6 +485,7 @@ async def _run_cli(args: argparse.Namespace) -> None:
         "vector_store_backend": backend_name,
         "embedding_model": get_embedding_model(),
         **report.as_dict(),
+        "score_threshold_analysis": threshold_analysis,
     }
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
@@ -454,6 +498,13 @@ def _positive_integer(raw_value: str) -> int:
     if value <= 0:
         raise argparse.ArgumentTypeError("must be greater than zero")
     return value
+
+
+def _cosine_score(raw_value: str) -> float:
+    try:
+        return validate_min_score(raw_value, setting_name="--min-score")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -476,6 +527,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--validate-only",
         action="store_true",
         help="validate cases without embedding queries or searching a store",
+    )
+    parser.add_argument(
+        "--min-score",
+        type=_cosine_score,
+        default=None,
+        help=(
+            "apply and evaluate a fixed cosine threshold from -1 to 1; "
+            "omit to calibrate a recommendation"
+        ),
     )
     return parser
 

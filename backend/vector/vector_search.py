@@ -1,6 +1,7 @@
 import numpy as np
 
 from vector.factory import get_vector_store
+from vector.search_policy import filter_search_hits, get_vector_search_min_score
 
 
 async def embed_query(text: str):
@@ -23,4 +24,5 @@ async def search_similar_items(query: str, top_k: int = 10):
     """Return top-k matched grocery items by cosine similarity."""
     q_emb = await embed_query(query)
     hits = await get_vector_store().search(q_emb, top_k=top_k)
-    return [(hit.item_id, hit.score) for hit in hits]
+    filtered_hits = filter_search_hits(hits, get_vector_search_min_score())
+    return [(hit.item_id, hit.score) for hit in filtered_hits]

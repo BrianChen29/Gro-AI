@@ -149,8 +149,10 @@ with a dry-run-first initial sync command. Targeted, dry-run-first update and
 delete commands keep Pinecone and the SQLite fallback cache aligned as catalog
 rows change. A backend-neutral retrieval evaluator measures Hit Rate,
 Precision, Recall, and MRR from versioned human relevance cases while retaining
-per-result similarity scores. MySQL remains the source of truth for complete
-product metadata.
+per-result similarity scores. It can recommend a global cosine threshold from
+calibration cases and validate a fixed threshold on held-out cases before that
+threshold is enabled in application search. MySQL remains the source of truth
+for complete product metadata.
 
 ## AI Workflow
 
