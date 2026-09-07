@@ -17,6 +17,14 @@ default is `text-embedding-3-large`; configure it once with:
 OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 ```
 
+For callers that already have multiple product queries,
+`search_similar_items_batch` embeds them in one provider request and performs
+the independent vector-store searches with bounded concurrency within that
+batch (five at a time by default). Its outer result order matches the input
+query order, each inner result keeps the store ranking, and the same optional
+score threshold is applied to every query. The existing single-query API
+remains available.
+
 ## Initial Pinecone Sync
 
 The initial sync reuses the existing SQLite vectors. It does not call the
