@@ -147,7 +147,10 @@ default and supports an optional async Pinecone backend behind the same
 `VectorStore` interface. Existing SQLite vectors can be validated and migrated
 with a dry-run-first initial sync command. Targeted, dry-run-first update and
 delete commands keep Pinecone and the SQLite fallback cache aligned as catalog
-rows change. MySQL remains the source of truth for complete product metadata.
+rows change. A backend-neutral retrieval evaluator measures Hit Rate,
+Precision, Recall, and MRR from versioned human relevance cases while retaining
+per-result similarity scores. MySQL remains the source of truth for complete
+product metadata.
 
 ## AI Workflow
 

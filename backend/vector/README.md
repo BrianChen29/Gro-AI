@@ -121,3 +121,76 @@ requires `OPENAI_API_KEY`; delete execution does not call OpenAI. Use
 `--embeddings-db /absolute/path/to/embeddings.sqlite` to override the cache for
 either operation. If the production fallback cache is stored in GCS, upload
 the updated SQLite file after a successful incremental command.
+
+## Retrieval Evaluation
+
+`retrieval_eval` measures the current `VectorStore` backend against
+human-labeled query-to-product relevance judgments. This is a local information
+retrieval evaluator, not an OpenAI Evals job: OpenAI is used only to embed the
+queries, while Gro AI calculates the retrieval metrics itself.
+
+Create a JSON file containing real item IDs from the MySQL catalog:
+
+```json
+{
+  "schema_version": 1,
+  "description": "Human-reviewed grocery retrieval cases",
+  "cases": [
+    {
+      "case_id": "oat-milk-intent",
+      "query": "unsweetened oat milk",
+      "relevant_item_ids": [123]
+    },
+    {
+      "case_id": "birthday-cake-intent",
+      "query": "chocolate birthday cake",
+      "relevant_item_ids": [456, 789]
+    }
+  ]
+}
+```
+
+The IDs above are placeholders, not Gro AI catalog IDs. Each case must contain
+at least one human-reviewed relevant ID; include every product that would be a
+valid result, rather than labeling only the first convenient match.
+
+From `backend`, validate the file without an embedding cache, API key, or
+vector store connection:
+
+```bash
+python -m vector.retrieval_eval \
+  --cases vector/evaluation_cases.json \
+  --validate-only
+```
+
+Run the evaluation against the backend selected by `VECTOR_STORE_BACKEND`:
+
+```bash
+python -m vector.retrieval_eval \
+  --cases vector/evaluation_cases.json \
+  --top-k 5
+```
+
+The command batches all case queries into one OpenAI embeddings request, then
+searches the selected store once per case. It reports:
+
+- **Hit Rate@K:** fraction of cases with at least one relevant result;
+- **Mean Precision@K:** average relevant results divided by `K`;
+- **Mean Recall@K:** average fraction of all labeled relevant IDs retrieved;
+- **MRR@K:** average reciprocal rank of the first relevant result.
+
+Every returned candidate retains its rank, vector similarity score, relevance
+label, and metadata. This evidence can later be used to compare backends or
+calibrate a score threshold/reranker. Aggregate metrics are not written into
+Pinecone and do not directly alter production search.
+
+The regular evaluation is read-only but does call OpenAI and the selected
+vector store. Memory-mode evaluation fails loudly if its SQLite cache is
+missing or empty. Optional case `filters` are passed to `VectorStore.search`;
+omit them when comparing against a legacy SQLite cache that has no metadata.
+The case count is limited to 2,048 because all queries are embedded in one
+batch. Standard output is JSON, so a report can be saved with shell
+redirection for later comparison.
+
+Keep the reviewed case file under version control alongside the catalog version
+it describes; otherwise an ID change can silently make relevance labels stale.
