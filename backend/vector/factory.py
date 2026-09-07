@@ -9,11 +9,16 @@ from vector.store import VectorStore
 from vector.vector_cache import get_cached_embeddings
 
 
+MEMORY_BACKEND_NAMES = frozenset({"memory", "in-memory", "exact"})
 _vector_store: VectorStore | None = None
 
 
 def vector_store_backend_name() -> str:
     return os.getenv("VECTOR_STORE_BACKEND", "memory").strip().lower()
+
+
+def uses_local_embedding_cache() -> bool:
+    return vector_store_backend_name() in MEMORY_BACKEND_NAMES
 
 
 def get_vector_store() -> VectorStore:
@@ -22,12 +27,16 @@ def get_vector_store() -> VectorStore:
         return _vector_store
 
     backend = vector_store_backend_name()
-    if backend in {"memory", "in-memory", "exact"}:
+    if backend in MEMORY_BACKEND_NAMES:
         _vector_store = InMemoryVectorStore(get_cached_embeddings)
+    elif backend == "pinecone":
+        from vector.pinecone_store import PineconeVectorStore
+
+        _vector_store = PineconeVectorStore.from_env()
     else:
         raise ValueError(
             f"Unsupported VECTOR_STORE_BACKEND={backend!r}; "
-            "this version supports 'memory'"
+            "expected 'memory' or 'pinecone'"
         )
     return _vector_store
 

@@ -25,6 +25,11 @@ from llm_modules.inventory_analyzer import analyze_inventory
 from llm_modules.menu_generator import generate_menu
 from llm_modules.procurement_planner import generate_restock_plan
 from llm_modules.chat_procurement_planner import generate_procurement_plan
+from vector.factory import (
+    close_vector_store,
+    get_vector_store,
+    uses_local_embedding_cache,
+)
 from vector.recommend_utils import get_relevant_grocery_items
 
 load_dotenv()
@@ -539,14 +544,23 @@ async def maybe_answer_with_llm(content: str, room_id: int, user_id: int):
 # --------- Routes ---------
 @app.on_event("startup")
 async def on_startup():
-    try:
-        # Download the vector DB first
+    if uses_local_embedding_cache():
         download_embeddings_if_needed()
-        
+
+    # Fail startup immediately for an unsupported backend or missing Pinecone
+    # configuration instead of waiting for the first user search to fail.
+    get_vector_store()
+
+    try:
         await init_db()
         print("DB initialized successfully")
     except Exception as e:
         print(f"Startup failed: {e}")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await close_vector_store()
 
 @app.post("/api/signup")
 async def signup(payload: AuthPayload, session: AsyncSession = Depends(get_db)):
