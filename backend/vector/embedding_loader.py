@@ -10,8 +10,12 @@ from db import SessionLocal, GroceryItem
 from llm import get_embedding
 
 # --- Configuration ---
-# Save the sqlite file in the same directory as this script
-EMBED_DB_PATH = os.path.join(os.path.dirname(__file__), "embeddings.sqlite")
+# Use the same explicit override as runtime search and catalog sync. Otherwise,
+# save the SQLite cache beside this script for local development.
+EMBED_DB_PATH = os.getenv("EMBEDDINGS_DB_PATH", "").strip() or os.path.join(
+    os.path.dirname(__file__),
+    "embeddings.sqlite",
+)
 
 # Batch size for SQLite inserts (improves disk I/O performance)
 BATCH_SIZE = 50 

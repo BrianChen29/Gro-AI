@@ -133,16 +133,20 @@ OpenAI / Gemini
 
 FastAPI backend
   |
-  | embedding lookup
+  | query embedding + VectorStore
   v
-SQLite embedding cache + grocery_items table
+SQLite exact search or Pinecone
+  |
+  | matched grocery_item IDs
+  v
+MySQL / Cloud SQL grocery_items
 ```
 
-The retrieval layer uses a lightweight embedding cache for grocery catalog items.
-Because the catalog is relatively stable and only updated occasionally, item
-embeddings can be precomputed and refreshed when new products are added. This
-keeps retrieval simple, fast, and cost-efficient while still supporting
-inventory-aware recommendations.
+The retrieval layer keeps the existing SQLite-backed exact cosine search as its
+default and supports an optional async Pinecone backend behind the same
+`VectorStore` interface. Existing SQLite vectors can be validated and migrated
+with a dry-run-first initial sync command. MySQL remains the source of truth for
+complete product metadata.
 
 ## AI Workflow
 
@@ -168,7 +172,7 @@ inventory-aware recommendations.
 │   ├── db.py                     # SQLAlchemy models and async DB session
 │   ├── llm.py                    # OpenAI/Gemini LLM wrapper and embeddings
 │   ├── llm_modules/              # Inventory/menu/restock/procurement modules
-│   ├── vector/                   # Embedding cache and vector search helpers
+│   ├── vector/                   # VectorStore backends, cache, sync, and search
 │   ├── load_groceries.py         # Grocery CSV loader
 │   ├── GroceryDataset.csv        # Small grocery catalog sample
 │   └── .env.example              # Local backend environment template
@@ -313,9 +317,12 @@ Main backend routes include:
 
 - Local setup requires MySQL and a valid `DATABASE_URL`.
 - LLM features require an OpenAI or Gemini API key.
-- Vector search uses an embedding SQLite cache. In Cloud Run, the app attempts
-  to download this cache from GCS. In local development, vector matching will
-  fall back to an empty result set if no local `embeddings.sqlite` file exists.
+- Vector search defaults to the SQLite embedding cache. In Cloud Run, the app
+  attempts to download this cache from GCS. An optional Pinecone backend and
+  dry-run-first initial sync utility are documented in
+  [`backend/vector/README.md`](backend/vector/README.md).
+- In local memory mode, vector matching falls back to an empty result set if no
+  embedding cache is available.
 - The backend can still run basic auth, rooms, chat, inventory, and shopping
   list flows without the embedding cache.
 
@@ -332,8 +339,8 @@ Main backend routes include:
 
 ## Future Improvements
 
-- Migrate the embedding retrieval layer to a managed vector database if the
-  product catalog grows significantly or requires frequent real-time updates.
+- Add incremental re-embedding and deletion synchronization for the optional
+  Pinecone backend.
 - Add Alembic migrations instead of schema-only SQL setup.
 - Add CI checks for backend tests and Flutter analysis.
 - Add structured Pydantic validation for LLM JSON outputs.
