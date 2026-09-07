@@ -25,6 +25,10 @@ query order, each inner result keeps the store ranking, and the same optional
 score threshold is applied to every query. The existing single-query API
 remains available.
 
+`get_relevant_grocery_items_batch` then deduplicates all matched IDs, loads the
+complete product rows in one MySQL query, and reconstructs a separately ranked
+product list for every input query.
+
 ## Initial Pinecone Sync
 
 The initial sync reuses the existing SQLite vectors. It does not call the
