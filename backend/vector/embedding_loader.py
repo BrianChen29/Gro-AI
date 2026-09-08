@@ -7,11 +7,16 @@ from tqdm.asyncio import tqdm  # Recommended for progress visualization
 
 # Import your existing modules
 from db import SessionLocal, GroceryItem
-from llm import get_embedding
+from vector.catalog_items import catalog_item_embedding_text
+from vector.embedding_client import get_embedding
 
 # --- Configuration ---
-# Save the sqlite file in the same directory as this script
-EMBED_DB_PATH = os.path.join(os.path.dirname(__file__), "embeddings.sqlite")
+# Use the same explicit override as runtime search and catalog sync. Otherwise,
+# save the SQLite cache beside this script for local development.
+EMBED_DB_PATH = os.getenv("EMBEDDINGS_DB_PATH", "").strip() or os.path.join(
+    os.path.dirname(__file__),
+    "embeddings.sqlite",
+)
 
 # Batch size for SQLite inserts (improves disk I/O performance)
 BATCH_SIZE = 50 
@@ -36,10 +41,10 @@ async def process_item(semaphore, item):
     """
     async with semaphore:
         try:
-            # Combine title and sub_category for richer semantic search context
-            text_to_embed = f"{item.title} | {item.sub_category}"
+            # Use the same canonical text as incremental synchronization.
+            text_to_embed = catalog_item_embedding_text(item)
             
-            # Call the LLM module (calls OpenAI text-embedding-3-large)
+            # Call the configured OpenAI embedding model.
             emb = await get_embedding(text_to_embed)
             
             # Basic validation
