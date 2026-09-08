@@ -25,12 +25,15 @@ from llm_modules.inventory_analyzer import analyze_inventory
 from llm_modules.menu_generator import generate_menu
 from llm_modules.procurement_planner import generate_restock_plan
 from llm_modules.chat_procurement_planner import generate_procurement_plan
+from llm_modules.catalog_grounding import (
+    build_catalog_context,
+    enrich_procurement_items,
+)
 from vector.factory import (
     close_vector_store,
     get_vector_store,
     uses_local_embedding_cache,
 )
-from vector.recommend_utils import get_relevant_grocery_items
 
 load_dotenv()
 
@@ -302,7 +305,7 @@ async def handle_gro_command(kind: str, room_id: int, user_id: int):
         # Strategies:
         # 1. If it's "analyze" or "restock": similar items of "low_stock"
         # 2. If it's "menu": we need to know the real items that correspond to "healthy_items"
-        # We do vector search for all invetory items.
+        # All selected product names are retrieved as one batch.
         
         search_targets = []
         if kind == "menu":
@@ -310,24 +313,11 @@ async def handle_gro_command(kind: str, room_id: int, user_id: int):
         else:
             search_targets = low_stock_items
         
-        grocery_items = []
-        for item in search_targets:
-            matches = await get_relevant_grocery_items(session, item["product_name"], limit=5)
-            for m in matches:
-                grocery_items.append({
-                    "title": m.title,
-                    "sub_category": m.sub_category,
-                    "price": float(m.price),
-                    "rating": m.rating_value or 0.0,
-                })
-
-        # remove duplicates by title
-        seen = set()
-        merged = []
-        for g in grocery_items:
-            if g["title"] not in seen:
-                seen.add(g["title"])
-                merged.append(g)
+        merged = await build_catalog_context(
+            session,
+            [item["product_name"] for item in search_targets],
+            limit=5,
+        )
         
         
         # Run AI Module
@@ -460,34 +450,12 @@ async def maybe_answer_with_llm(content: str, room_id: int, user_id: int):
         # Generic List
         plan_result = await generate_procurement_plan(chat_history=chat_history, model_name=model_name)
         
-        # RAG Enrichment: vector search for every keyword in list
-        enriched_items = []
+        # RAG Enrichment: retrieve all named plan items as one batch.
         async with SessionLocal() as session:
-            for item in plan_result.get("items", []):
-                raw_name = item.get("name")
-                
-                item["match_found"] = False
-                item["real_product"] = None
-                
-                if raw_name:
-                    matches = await get_relevant_grocery_items(session, raw_name, limit=1)
-                    
-                    if matches:
-                        best_match = matches[0]
-                        
-                        item["match_found"] = True
-                        item["real_product"] = {
-                            "id": best_match.id,
-                            "title": best_match.title,
-                            "price": float(best_match.price),
-                            "sub_category": best_match.sub_category,
-                            "rating": best_match.rating_value or 0.0
-                        }
-                        print(f"Matched '{raw_name}' -> '{best_match.title}'")
-                    else:
-                        print(f"No match found for '{raw_name}'")
-                
-                enriched_items.append(item)
+            enriched_items = await enrich_procurement_items(
+                session,
+                plan_result.get("items", []),
+            )
         
         plan_result["items"] = enriched_items
                 

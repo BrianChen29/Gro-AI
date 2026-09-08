@@ -29,6 +29,11 @@ remains available.
 complete product rows in one MySQL query, and reconstructs a separately ranked
 product list for every input query.
 
+The `@gro analyze`, `@gro menu`, `@gro restock`, and `@gro plan` workflows use
+this batch path for their catalog grounding. Empty query lists skip retrieval,
+and procurement items without a catalog match retain an explicit no-match
+result.
+
 ## Initial Pinecone Sync
 
 The initial sync reuses the existing SQLite vectors. It does not call the

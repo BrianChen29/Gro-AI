@@ -151,8 +151,10 @@ rows change. A backend-neutral retrieval evaluator measures Hit Rate,
 Precision, Recall, and MRR from versioned human relevance cases while retaining
 per-result similarity scores. It can recommend a global cosine threshold from
 calibration cases and validate a fixed threshold on held-out cases before that
-threshold is enabled in application search. MySQL remains the source of truth
-for complete product metadata.
+threshold is enabled in application search. Multi-item AI workflows batch their
+query embeddings, bound concurrent vector-store searches, and hydrate all
+matched product IDs with one MySQL query. MySQL remains the source of truth for
+complete product metadata.
 
 ## AI Workflow
 
@@ -345,8 +347,8 @@ Main backend routes include:
 
 ## Future Improvements
 
-- Add incremental re-embedding and deletion synchronization for the optional
-  Pinecone backend.
+- Automate the existing Pinecone re-embedding and deletion commands from future
+  catalog-write workflows; they currently run as explicit operator commands.
 - Add Alembic migrations instead of schema-only SQL setup.
 - Add CI checks for backend tests and Flutter analysis.
 - Add structured Pydantic validation for LLM JSON outputs.
