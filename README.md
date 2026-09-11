@@ -135,7 +135,7 @@ FastAPI backend
   |
   | query embedding + VectorStore
   v
-SQLite exact search or Pinecone
+SQLite cache + NumPy exact search, or Pinecone
   |
   | matched grocery_item IDs
   v
@@ -155,6 +155,36 @@ threshold is enabled in application search. Multi-item AI workflows batch their
 query embeddings, bound concurrent vector-store searches, and hydrate all
 matched product IDs with one MySQL query. MySQL remains the source of truth for
 complete product metadata.
+
+## Vector Retrieval Progress (2026-09-11)
+
+The first vector-store extension is complete through commit `cdaabb3` on
+`feat/vector-store-backends`. It includes a shared `VectorStore` contract,
+NumPy exact search and an optional async Pinecone adapter, dry-run-first initial
+and incremental synchronization, retrieval evaluation and threshold calibration,
+and batched retrieval/hydration used by all four structured Gro AI commands.
+
+The offline suite has 87 passing tests, including a cross-layer catalog retrieval
+test with real NumPy search and controlled embedding/database boundaries. This
+verifies tested application behavior, not live Pinecone integration, generated
+answer quality, or measured performance gains. Real catalog relevance labels,
+held-out evaluation, a calibrated threshold, and live OpenAI/Pinecone/MySQL
+acceptance remain pending. The original course demo's deployment does not imply
+that this later extension has been deployed. FAISS is not an implemented backend.
+
+To run the offline suite from the repository root, with backend dependencies and
+pytest installed:
+
+```bash
+cd backend
+python -m pytest tests -q
+```
+
+No live API keys or database servers are needed for this suite. The separate
+`backend/test_gemini.py` is a manual provider script outside `backend/tests/`.
+See [the vector guide](backend/vector/README.md) for test scope and live acceptance
+steps. The next project checkpoint is a code/design retrospective; live acceptance
+and real-data evaluation follow when the environment and labels are available.
 
 ## AI Workflow
 
@@ -340,7 +370,8 @@ Main backend routes include:
 - The original Cloud Run / Cloud SQL deployment may be disabled outside demo windows to avoid ongoing cloud costs.
 - WebSocket connections are room-scoped but not independently authenticated at connection time.
 - CORS is permissive for local development and demo purposes.
-- Automated test coverage is limited and should be expanded before production use.
+- Retrieval has 87 passing offline tests; full application routes, live-service
+  integration, and generated-answer quality need further validation.
 - LLM outputs use best-effort JSON processing and do not yet have complete
   Pydantic schema validation or a catalog/inventory whitelist on every workflow.
 - Some legacy documentation files may still reference earlier prototypes or experiments.
