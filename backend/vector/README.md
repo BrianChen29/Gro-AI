@@ -25,6 +25,11 @@ query order, each inner result keeps the store ranking, and the same optional
 score threshold is applied to every query. The existing single-query API
 remains available.
 
+One batch accepts at most 2,048 query texts; larger inputs are not automatically
+chunked. This reduces embedding request count, not the total text to embed.
+The search semaphore is per batch, not a process-wide rate limit. An async
+interface also does not make NumPy's in-process CPU work run in parallel.
+
 `get_relevant_grocery_items_batch` then deduplicates all matched IDs, loads the
 complete product rows in one MySQL query, and reconstructs a separately ranked
 product list for every input query.
@@ -86,7 +91,10 @@ python -m vector.catalog_sync \
 ```
 
 The operation is repeatable: Pinecone upserts use the grocery item ID as the
-vector ID, so rerunning replaces records with the same IDs.
+vector ID, so rerunning replaces records with the same IDs. It reports orphaned
+SQLite IDs but does not reconcile or delete every stale record in the remote
+index. Both sync commands require an existing SQLite cache; the legacy
+`embedding_loader` creates that cache, while the sync commands reuse it.
 
 ## Incremental Catalog Updates
 
@@ -130,15 +138,21 @@ After the dry run reports `"ready_to_execute": true`, apply it:
 python -m vector.catalog_update delete 42 57 --execute
 ```
 
-Execution deletes the IDs from Pinecone and the local SQLite cache. Both
-upserts and deletes are idempotent, so the same command can be rerun if a local
-cache update fails after Pinecone succeeds.
+Execution deletes the IDs from Pinecone and the local SQLite cache. Writes use
+stable item IDs, so repeating a command replaces or deletes those records
+without duplicating IDs. Repeating an upsert still calls the embedding provider
+again and may incur cost. MySQL, Pinecone, and SQLite do not share a transaction:
+there is no automatic rollback, retry worker, or outbox, and partial failures
+require operator review and an explicit retry.
 
 `--execute` requires `VECTOR_STORE_BACKEND=pinecone`. Upsert execution also
 requires `OPENAI_API_KEY`; delete execution does not call OpenAI. Use
 `--embeddings-db /absolute/path/to/embeddings.sqlite` to override the cache for
-either operation. If the production fallback cache is stored in GCS, upload
-the updated SQLite file after a successful incremental command.
+either operation. If the deployment's memory-mode cache is stored in GCS,
+upload the updated SQLite file after a successful incremental command. This
+does not hot-reload an already initialized in-memory vector-store snapshot or
+other running processes; refresh those instances separately. Backend selection
+is explicit, not an automatic fallback from a failed Pinecone request.
 
 ## Retrieval Evaluation
 
@@ -261,3 +275,25 @@ redirection for later comparison.
 
 Keep the reviewed case file under version control alongside the catalog version
 it describes; otherwise an ID change can silently make relevance labels stale.
+
+## Tests
+
+From `backend`, with backend dependencies and pytest installed, run:
+
+```bash
+python -m pytest tests -q
+```
+
+The offline suite covers store adapters, cache and synchronization behavior,
+retrieval metrics, threshold policy, batch ordering/concurrency, product
+hydration, and workflow integration. It does not require live API keys or
+database servers.
+
+`tests/test_catalog_retrieval_integration.py` exercises the shared context
+builder through real NumPy similarity search, threshold filtering, ranked
+hydration, and context formatting, with controlled embedding and database
+boundaries. SQL is constructed and inspected rather than executed against
+MySQL. Live-service validation is separate from this offline suite.
+
+Target `tests/` explicitly; `test_gemini.py` outside that directory is a manual
+provider script.
