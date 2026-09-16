@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 !.env.example
 !backend/.env.example
+interview_doc/
 
 .DS_Store
 
