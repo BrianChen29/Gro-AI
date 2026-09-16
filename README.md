@@ -4,296 +4,164 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-Mobile%20%2B%20Web-02569B?logo=flutter&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-Cloud%20SQL-4479A1?logo=mysql&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-Async%20ORM-D71F00?logo=sqlalchemy&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-LLM-412991?logo=openai&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini-LLM-4285F4?logo=googlegemini&logoColor=white)
-![WebSocket](https://img.shields.io/badge/WebSocket-Realtime%20Chat-4B5563)
-![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)
 ![Cloud Run](https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)
-![Catalog Grounding](https://img.shields.io/badge/Catalog%20Grounding-Exact%20Cosine%20Search-7C3AED)
 
-Gro AI is an AI-powered B2B procurement and collaboration platform connecting
-restaurants with grocery suppliers. It brings group chat, restaurant inventory,
-supplier catalog data, and AI-assisted planning into one shared workflow.
+**From inventory and group conversations to coordinated procurement.**
 
-The app combines a Flutter client, FastAPI backend, MySQL persistence, WebSocket
-chat delivery, and OpenAI/Gemini-powered workflows for inventory analysis, menu
-planning, restocking, and supplier coordination.
+Gro AI connects restaurants with grocery suppliers through shared chat,
+inventory tracking, and AI-assisted planning. A Flutter client brings these
+workflows together, while a FastAPI backend combines business data,
+OpenAI/Gemini integration, and semantic matching against a supplier catalog.
 
-## Project Context
+Developed as a USC Applied Data Science team project, Gro AI was shaped by
+conversations with grocery managers and employees about fragmented ordering,
+inventory management, and supplier communication.
 
-Gro AI was developed by a three-person USC Applied Data Science course team with
-a product-oriented mindset. The team conducted domain research and spoke with
-grocery managers and employees to understand procurement, inventory, and
-communication pain points in real grocery operations.
+## Product Experience
 
-The project was designed as a functional prototype for restaurant–supplier
-procurement collaboration, with features shaped around stakeholder needs such as
-inventory tracking, group coordination, restock planning, menu planning, and
-procurement-list generation.
+| Workflow | What users can do |
+|---|---|
+| Collaborative workspace | Create rooms, invite members, and coordinate through real-time chat |
+| Inventory tracking | Record stock and safety-stock levels to identify restocking needs |
+| Inventory analysis | Use `@gro analyze` to review stock and receive recommendations |
+| Menu planning | Use `@gro menu` to suggest dishes from available inventory |
+| Restock planning | Use `@gro restock` to generate suggestions informed by low stock and catalog matches |
+| Chat-based procurement | Use `@gro plan` to consolidate the conversation into a shopping plan and match items to catalog products |
+| Shopping lists | Save procurement items and track their completion |
 
-While the system is not currently operated as a live commercial SaaS product, it
-was built to demonstrate how GenAI, backend systems, real-time communication,
-and inventory-aware workflows could be integrated into a practical procurement
-assistant.
+For example, a user can add inventory in a room:
 
-## Technical Highlights
+```text
+@inventory
+Tomatoes, 10, 20
+Olive oil, 3, 5
+Cheese, 12, 4
+```
 
-- **Project type:** AI-powered restaurant procurement and collaboration
-  application with catalog-grounded workflows
-- **Core stack:** FastAPI, SQLAlchemy, MySQL/Cloud SQL, Flutter, WebSocket,
-  OpenAI, Gemini, Docker, GCP Cloud Run, Cloud Build, GCS, Firebase Hosting
-- **AI features:** LLM command router, best-effort structured JSON processing,
-  exact-cosine catalog grounding, inventory-aware recommendations, and
-  procurement planning
-- **Team-built application features:** Authentication, room management, group
-  chat, inventory tracking, shopping lists, WebSocket messaging, and AI-command
-  workflows
-- **Deployment:** The Dockerized FastAPI backend was deployed to GCP Cloud Run
-  through Cloud Build with Cloud SQL and GCS; the Flutter Web frontend was built
-  and deployed to Firebase Hosting. Live cloud resources may be disabled outside
-  demos to avoid ongoing costs.
-
-## What The App Does
-
-Gro AI helps restaurants and grocery suppliers coordinate procurement inside a
-shared chat room.
-
-Users can:
-
-- Create accounts, log in, create rooms, invite members, and chat in real time.
-- Track inventory items with stock and safety-stock thresholds.
-- Ask the AI assistant to analyze low-stock items.
-- Plan menus from available inventory.
-- Generate restock recommendations from low-stock inventory.
-- Generate a consolidated procurement plan from group chat context.
-- Save generated procurement items into shopping lists.
+Then send `@gro restock` for low-stock recommendations or `@gro plan` after
+discussing procurement needs with the room. AI results appear as structured
+cards in the Flutter interface.
 
 ## My Contributions
 
-This was a three-person USC course team project. I led backend development and
-LLM integration for the application-specific AI track:
+I led backend development and LLM integration for the application-specific AI
+workflows, collaborating with teammates on the database and Flutter interfaces.
 
-- Conceived and implemented the FastAPI/LLM workflows for `@gro analyze`,
-  `@gro menu`, `@gro restock`, and `@gro plan`, including chat-context
-  procurement planning and OpenAI/Gemini integration.
-- Defined and processed structured LLM outputs, enriched them with real catalog
-  metadata, and packaged them as backend-to-frontend AI events using a stable
-  `event` / `narrative` / `payload` contract.
-- Built a catalog-grounding pipeline using precomputed OpenAI embeddings,
-  SQLite caching, in-memory exact cosine search, and product-metadata enrichment
-  so LLM recommendations could reference real catalog items.
-- Integrated the AI workflows with the team's existing chat, room, inventory,
-  shopping-list, database, and WebSocket interfaces. Auth, rooms, inventory,
-  shopping-list services, the core SQL schema, and the WebSocket manager were
-  provided foundations or teammate-led; I contributed to interface discussions,
-  integration, review, and some joint implementation.
-- Adapted data from my backend/AI flows to the teammate-led SQL schema and
-  worked with the Flutter teammate, who implemented parsing and UI cards around
-  the event contract I provided.
-- Owned application cloud deployment: Docker/Cloud Build/Cloud Run/Cloud SQL/GCS
-  for the FastAPI AI backend, plus the build and deployment of the team-developed
-  Flutter Web frontend to Firebase Hosting.
+- **AI workflows:** Implemented inventory analysis, menu generation, restocking,
+  and chat-context procurement planning with OpenAI and Gemini.
+- **Frontend integration:** Defined the AI event contract, processed structured
+  model outputs, and enriched results with product data for Flutter cards.
+- **Catalog grounding:** Built embedding-based product matching, SQLite vector
+  caching, and retrieval of current product metadata from MySQL.
+- **Retrieval extension:** Added a shared vector-store interface, an optional
+  async Pinecone adapter, catalog synchronization commands, evaluation tooling,
+  and batched search and product hydration.
+- **Application integration:** Connected these workflows to the team's chat,
+  room, inventory, shopping-list, and WebSocket services.
+- **Cloud delivery:** Owned the FastAPI application's Docker/Cloud Build/
+  Cloud Run deployment with Cloud SQL and GCS, and built and deployed the
+  team-developed Flutter Web frontend to Firebase Hosting.
 
-I do not claim sole authorship of the general backend services, WebSocket
-infrastructure, core SQL schema, or Flutter UI. Current LLM output handling is
-best-effort JSON processing rather than complete Pydantic schema validation.
+## Engineering Highlights
 
-## Current Model Support
-
-The current maintained path supports:
-
-- OpenAI chat completions, default model configured by `OPENAI_MODEL`
-- Google Gemini, model configured by `GEMINI_MODEL`
-
-TinyLlama/Ollama was prototyped earlier in the project, but it was disabled in
-the final maintained path because OpenAI and Gemini gave better response quality
-and practical latency for this application. Some legacy docs or scripts may
-still reference that experiment, but TinyLlama is not part of the current
-supported setup.
+- **Interchangeable retrieval backends:** SQLite-cached vectors with NumPy
+  exact cosine search by default, or an optional async Pinecone adapter.
+- **Batched catalog matching:** Embed multiple queries in one provider request,
+  bound concurrent vector searches, and load matched product rows in one
+  catalog SQL query while preserving each query's ranking.
+- **Explicit catalog maintenance:** Dry-run-first commands for initial vector
+  synchronization and targeted product upserts/deletions.
+- **Evaluation tooling:** Compute Hit Rate@K, Precision@K, Recall@K, and MRR@K
+  from relevance labels; calibrate a score threshold and evaluate it on held-out
+  cases before enabling it.
+- **Separation of data responsibilities:** MySQL owns product details such as
+  price and rating; the vector layer returns candidate product IDs and scores.
+- **Testable integration:** Offline tests cover vector-store behavior,
+  synchronization, evaluation, batching, and the catalog-grounding pipeline.
 
 ## Architecture
 
 ```text
-Flutter app
-  |
-  | HTTP + WebSocket
-  v
-FastAPI backend
-  |
-  | SQLAlchemy async ORM
-  v
-MySQL / Cloud SQL
-
-FastAPI backend
-  |
-  | LLM calls
-  v
-OpenAI / Gemini
-
-FastAPI backend
-  |
-  | query embedding + VectorStore
-  v
-SQLite cache + NumPy exact search, or Pinecone
-  |
-  | matched grocery_item IDs
-  v
-MySQL / Cloud SQL grocery_items
+Flutter client
+    |
+    | HTTP + WebSocket
+    v
+FastAPI — authentication, chat, inventory, shopping lists, AI routing
+    |
+    +-- SQLAlchemy --> MySQL / Cloud SQL
+    |
+    +-- AI workflows --> OpenAI / Gemini --> structured AI events
+    |
+    +-- Catalog retrieval
+            |
+            +-- OpenAI query embeddings
+            +-- VectorStore: NumPy exact search / Pinecone adapter
+            +-- Ranked product IDs --> MySQL product details
 ```
 
-The retrieval layer keeps the existing SQLite-backed exact cosine search as its
-default and supports an optional async Pinecone backend behind the same
-`VectorStore` interface. Existing SQLite vectors can be validated and migrated
-with a dry-run-first initial sync command. Targeted, dry-run-first update and
-delete commands keep Pinecone and the SQLite fallback cache aligned as catalog
-rows change. A backend-neutral retrieval evaluator measures Hit Rate,
-Precision, Recall, and MRR from versioned human relevance cases while retaining
-per-result similarity scores. It can recommend a global cosine threshold from
-calibration cases and validate a fixed threshold on held-out cases before that
-threshold is enabled in application search. Multi-item AI workflows batch their
-query embeddings, bound concurrent vector-store searches, and hydrate all
-matched product IDs with one MySQL query. MySQL remains the source of truth for
-complete product metadata.
+The structured AI commands use catalog matching in two ways:
 
-## Vector Retrieval Progress (2026-09-11)
+- **Analyze / menu / restock:** Retrieve relevant products before generation
+  and supply them alongside inventory context.
+- **Plan:** Generate a procurement list from chat history, then match its item
+  names to real catalog products.
 
-The first vector-store extension is complete through commit `cdaabb3` on
-`feat/vector-store-backends`. It includes a shared `VectorStore` contract,
-NumPy exact search and an optional async Pinecone adapter, dry-run-first initial
-and incremental synchronization, retrieval evaluation and threshold calibration,
-and batched retrieval/hydration used by all four structured Gro AI commands.
+See the [catalog retrieval guide](backend/vector/README.md) for backend
+configuration, synchronization, and evaluation commands.
 
-The offline suite has 87 passing tests, including a cross-layer catalog retrieval
-test with real NumPy search and controlled embedding/database boundaries. This
-verifies tested application behavior, not live Pinecone integration, generated
-answer quality, or measured performance gains. Real catalog relevance labels,
-held-out evaluation, a calibrated threshold, and live OpenAI/Pinecone/MySQL
-acceptance remain pending. The original course demo's deployment does not imply
-that this later extension has been deployed. FAISS is not an implemented backend.
+## Run Locally
 
-To run the offline suite from the repository root, with backend dependencies and
-pytest installed:
+Requirements: Python 3.11+, MySQL 8+, and Flutter SDK 3.x. AI chat requires a
+configured OpenAI or Gemini provider; catalog embeddings require an OpenAI API
+key regardless of the chat provider.
 
-```bash
-cd backend
-python -m pytest tests -q
-```
+### 1. Install and configure
 
-No live API keys or database servers are needed for this suite. The separate
-`backend/test_gemini.py` is a manual provider script outside `backend/tests/`.
-See [the vector guide](backend/vector/README.md) for test scope and live acceptance
-steps. The next project checkpoint is a code/design retrospective; live acceptance
-and real-data evaluation follow when the environment and labels are available.
-
-## AI Workflow
-
-1. A user sends a chat message such as `@gro analyze` or `@gro plan`.
-2. The existing message flow stores and broadcasts the original chat message.
-3. The command router in `backend/app.py` detects the AI command.
-4. Depending on the command, the workflow loads inventory, chat history, and
-   relevant supplier-catalog matches.
-5. The selected LLM provider generates JSON that is processed with the current
-   best-effort parsing path.
-6. The backend enriches the result with real product metadata and packages the
-   backend-to-frontend AI event contract. The current `@gro plan` branch
-   broadcasts its structured event; not every AI event is claimed to persist.
-7. Flutter parses the contract and renders the result as a structured card.
-
-## Repository Structure
-
-```text
-.
-├── backend/
-│   ├── app.py                    # FastAPI routes, WebSocket, AI command router
-│   ├── auth.py                   # JWT auth and password hashing
-│   ├── db.py                     # SQLAlchemy models and async DB session
-│   ├── llm.py                    # OpenAI/Gemini chat wrapper
-│   ├── llm_modules/              # Inventory/menu/restock/procurement modules
-│   ├── vector/                   # Embeddings, VectorStore, sync, and search
-│   ├── load_groceries.py         # Grocery CSV loader
-│   ├── GroceryDataset.csv        # Small grocery catalog sample
-│   └── .env.example              # Local backend environment template
-├── flutter_frontend/
-│   ├── lib/                      # Flutter app source
-│   ├── web/                      # Flutter web entrypoint
-│   ├── ios/                      # iOS project files
-│   └── pubspec.yaml              # Flutter dependencies
-├── sql/
-│   ├── schema.sql                # Local MySQL schema setup
-│   └── migration_add_deleted_at.sql
-├── Dockerfile                    # Backend container for Cloud Run
-├── cloudbuild.yaml               # Cloud Build deployment config
-├── requirements.txt              # Backend Python dependencies
-└── QUICKSTART.md                 # Local setup notes
-```
-
-## Local Setup
-
-### Prerequisites
-
-- Python 3.11+
-- MySQL 8+
-- Flutter SDK 3.x
-- Optional: OpenAI API key and/or Gemini API key
-
-### 1. Create The Local Database
-
-```bash
-mysql -u root -p < sql/schema.sql
-```
-
-The schema creates a local development database named `groceryshopperai` and a
-development user named `chatuser`. The password in `sql/schema.sql` is a
-local-only placeholder for reproducible setup. Do not use it for production.
-
-### 2. Configure Backend Environment
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Then edit `backend/.env` and add at least one LLM API key.
-
-```bash
-DATABASE_URL=mysql+asyncmy://chatuser:chatpass@127.0.0.1:3306/groceryshopperai
-JWT_SECRET=replace-with-a-long-random-dev-secret
-OPENAI_API_KEY=
-GEMINI_API_KEY=
-```
-
-### 3. Install Backend Dependencies
+From the repository root in a fresh checkout:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp backend/.env.example backend/.env
+mysql -u root -p < sql/schema.sql
 ```
 
-### 4. Load Grocery Catalog Data
+Edit `backend/.env` with your database connection, a new `JWT_SECRET`, and
+provider keys. The schema's development credentials are local-only examples.
+Keep secrets out of version control.
+
+### 2. Prepare the catalog
+
+For the default memory backend:
 
 ```bash
 cd backend
 python load_groceries.py
+python -m vector.embedding_loader
 cd ..
 ```
 
-### 5. Start The Backend
+The embedding step creates the local SQLite vector cache and calls the OpenAI
+API, which may incur usage charges. If you already have a compatible cache,
+configure `EMBEDDINGS_DB_PATH` instead of generating a new one. Pinecone setup
+is covered in the [retrieval guide](backend/vector/README.md).
+
+### 3. Start the backend
+
+From the repository root:
 
 ```bash
 cd backend
-python -m uvicorn app:app --host 0.0.0.0 --port 8000
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-The backend API will be available at:
+The local API documentation is available at
+[localhost:8000/docs](http://localhost:8000/docs).
 
-```text
-http://localhost:8000
-```
+### 4. Start Flutter Web
 
-### 6. Run The Flutter App
-
-In a second terminal:
+In a second terminal, from the repository root:
 
 ```bash
 cd flutter_frontend
@@ -303,89 +171,43 @@ flutter run -d chrome \
   --dart-define=WS_URL=ws://localhost:8000/ws
 ```
 
-Without `--dart-define`, the frontend falls back to the deployed backend URL
-configured in `flutter_frontend/lib/services/api_client.dart`. That hosted
-backend may be disabled outside demo windows to avoid cloud charges, so local
-review should use the localhost values above.
+Register an account, create a room, add inventory, and try the commands above.
 
-## Example AI Commands
+## Tests
 
-Inside a chat room:
+With backend dependencies installed, run the offline suite from the repository
+root:
 
-```text
-@inventory
-Tomatoes, 10, 20
-Olive oil, 3, 5
-Cheese, 12, 4
+```bash
+python -m pip install pytest
+cd backend
+python -m pytest tests -q
 ```
 
-```text
-@gro analyze
-@gro menu
-@gro restock
-@gro plan
-@gro What should we buy for a small dinner service?
-```
+The suite uses controlled external-service boundaries and runs without live API
+keys or database servers. It includes a cross-layer test of catalog retrieval,
+similarity filtering, ranked product hydration, and context formatting.
 
-## API Surface
+## Deployment
 
-Main backend routes include:
+The course application was deployed with **Cloud Run, Cloud SQL, GCS, and
+Firebase Hosting**, using Docker and Cloud Build for the backend delivery path.
+Deployment configuration is available in [Dockerfile](Dockerfile) and
+[cloudbuild.yaml](cloudbuild.yaml).
 
-- `POST /api/signup`
-- `POST /api/login`
-- `GET /api/rooms`
-- `POST /api/rooms`
-- `DELETE /api/rooms/{room_id}`
-- `GET /api/rooms/{room_id}/members`
-- `POST /api/rooms/{room_id}/invite`
-- `GET /api/rooms/{room_id}/messages`
-- `POST /api/rooms/{room_id}/messages`
-- `GET /api/users/llm-model`
-- `PUT /api/users/llm-model`
-- `GET /api/inventory`
-- `POST /api/inventory`
-- `DELETE /api/inventory/{product_id}`
-- `GET /api/shopping-lists`
-- `POST /api/shopping-lists`
-- `DELETE /api/shopping-lists/{list_id}`
-- `POST /api/shopping-lists/{list_id}/check-item`
-- `WS /ws?room_id={room_id}`
+Hosted demo resources may be paused between demonstrations; use the local
+setup above to explore the project. These instructions target local/demo use;
+review authentication, authorization, and deployment settings before exposing
+an instance publicly.
 
-## Reproducibility Notes
+## Code Guide
 
-- Local setup requires MySQL and a valid `DATABASE_URL`.
-- LLM features require an OpenAI or Gemini API key.
-- Vector search defaults to the SQLite embedding cache. In Cloud Run, the app
-  attempts to download this cache from GCS. An optional Pinecone backend and
-  dry-run-first initial sync utility are documented in
-  [`backend/vector/README.md`](backend/vector/README.md).
-- In local memory mode, vector matching falls back to an empty result set if no
-  embedding cache is available.
-- The backend can still run basic auth, rooms, chat, inventory, and shopping
-  list flows without the embedding cache.
-
-## Known Limitations
-
-- This is a functional product prototype developed in an academic team setting, not a currently operated commercial SaaS product.
-- The original Cloud Run / Cloud SQL deployment may be disabled outside demo windows to avoid ongoing cloud costs.
-- WebSocket connections are room-scoped but not independently authenticated at connection time.
-- CORS is permissive for local development and demo purposes.
-- Retrieval has 87 passing offline tests; full application routes, live-service
-  integration, and generated-answer quality need further validation.
-- LLM outputs use best-effort JSON processing and do not yet have complete
-  Pydantic schema validation or a catalog/inventory whitelist on every workflow.
-- Some legacy documentation files may still reference earlier prototypes or experiments.
-
-## Future Improvements
-
-- Automate the existing Pinecone re-embedding and deletion commands from future
-  catalog-write workflows; they currently run as explicit operator commands.
-- Add Alembic migrations instead of schema-only SQL setup.
-- Add CI checks for backend tests and Flutter analysis.
-- Add structured Pydantic validation for LLM JSON outputs.
-- Add a small seed/demo script for recruiter-friendly local demos.
-- Add screenshots or a short demo GIF to the README.
-- Move production secrets to Secret Manager and document the Cloud Run/Cloud SQL
-  deployment setup without exposing environment-specific values.
-- Revisit local model support only if latency and output quality become
-  competitive with API-backed models.
+| Area | Entry point |
+|---|---|
+| API routes, WebSocket, and AI command routing | [backend/app.py](backend/app.py) |
+| Database models and sessions | [backend/db.py](backend/db.py) |
+| Chat provider integration | [backend/llm.py](backend/llm.py) |
+| Application-specific AI workflows | [backend/llm_modules/](backend/llm_modules/) |
+| Vector stores, synchronization, and evaluation | [backend/vector/](backend/vector/) |
+| Offline backend tests | [backend/tests/](backend/tests/) |
+| Flutter application | [flutter_frontend/lib/](flutter_frontend/lib/) |
